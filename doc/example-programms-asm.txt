@@ -1,0 +1,61 @@
+
+// LOOPS
+//=================================================
+// for(int i=1; i<10; i++)
+//=================================================  
+  LD R0, 1 			// R0 = 1;
+.start_loop			// for(; R0<=10; R0++)
+  CMP R0, 10		// done if Z or: (R0-10>=0)
+  BRZ (end_loop)	// if Zero, jump to end_loop 
+  BRP (end_loop)	// if Pos, jump to end_loop 
+ // do something
+  ADD R0, 1			// R0++
+  BRA (start_loop)	// jump to beginning of loop
+.end_loop
+  HALT
+  
+//	i const Flags	EndLoop
+//	0	10	N		false
+// ...	10	N		false
+//	9	10	N		false
+// 10	10	Z		true
+// 11	10	P		true
+// 12	10	P		true
+
+//	i	9	Flags	EndLoop
+//	0	9	N		false
+//	1	9	N		false
+//	9	9	Z		false
+// 10	9	P		true
+// 11	9	P		true
+// 12	9	P		true
+
+// => BETTER: requires only one branch
+  CMP R0, 9			// done if Z or: (R0-9<=0)
+  BRP (end_loop)	// if Zero, jump to end_loop 
+
+//=================================================
+// for(int i=1; i<=10; i++)
+//=================================================  
+  LD R0, 1 			// R0 = 1;
+.start_loop			// for(; R0<=10; R0++)
+  CMP R0, 10		// done if Z or: (R0-10>0)
+  BRP (end_loop)	// if Pos, jump to end_loop 
+  // do something
+  ADD R0, 1			// R0++
+  BRA (start_loop)	// jump to beginning of loop
+.end_loop
+  HALT
+
+//================================================= 
+// while(i<10) {/*...*/ i++;}
+//=================================================  
+  LD R0, 1 			// R0 = 1;
+.start_loop			// for(; R0<=10; R0++)
+  CMP R0, 10		// done if i>9: (R0-9<=0)
+  BRP (end_loop)	// if Pos (R0-9>0), jump to end_loop 
+  // do something
+  ADD R0, 1			// R0++
+  BRA (start_loop)	// jump to beginning of loop
+.end_loop
+  HALT
