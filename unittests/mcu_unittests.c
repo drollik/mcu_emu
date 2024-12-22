@@ -4,11 +4,21 @@
  *  Created on: 13 Dec 2024
  *      Author: olive
  */
+#include "mcu_unittests.h"
+
+#include <stdio.h>
 #include <assert.h>
 
-#include "mcu.h"
-#include "mem.h"
-#include "unittests.h"
+#include "../mcu/mcu.h"
+#include "../mcu/mem.h"
+
+void run_mcu_unittests(void) {
+	_test_LD_Rx_value();
+	_test_LD_Rx_Ry();
+
+	printf("DONE!\n");
+}
+
 
 void _test_LD_Rx_value() {
 

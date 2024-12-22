@@ -2,7 +2,7 @@
  * main.c
  *
  *  Created on: 6 Dec 2024
- *      Author: olive
+ *      Author: oliver.kasten@drollik.net
  *
  *  BIG endian:
  *  uint32 x = 0x0A0B0C0D
@@ -22,8 +22,8 @@
  *    - 2nd byte: destination register
  *    - 3rd+4th byte: source value/ addr/ register
  *    - no operations directly in memory
+ *  BIG-endian
  */
-
 
 
 #include <stdint.h>
@@ -31,18 +31,10 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-#include "endianness.h"
-#include "mem.h" // memory
-#include "mcu.h" // mcu
-#include "unittests.h" // mcu
-
-void test_all() {
-	_test_LD_Rx_value();
-	_test_LD_Rx_Ry();
-
-	printf("DONE!\n");
-
-}
+#include "mcu/endianness.h"
+#include "mcu/mem.h" // memory
+#include "mcu/mcu.h" // mcu
+#include "unittests/unittests.h" // mcu
 
 
 
@@ -50,7 +42,7 @@ int main(void) {
 	//==========================================
 	printf("Host is %s endian.\n", HOST_IS_BE?"BIG":"LITTLE");
 
-	test_all(); // run all unit tests
+	run_all_unittests(); // run all unit tests
 
 	return 0;
 

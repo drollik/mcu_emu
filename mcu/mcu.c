@@ -114,18 +114,18 @@ op_state_t mcu_exec_op( mcu_t* mcu, mem_t* mem ) {
 		// ===========
 		// CONTROL OPS
 		// ===========
-	case 0x30: // BRA $addr - unconditional branch
+	case 0x50: // BRA $addr - unconditional branch
 		mcu->PC = WORD(oper_h, oper_l); // value
 		break;
-	case 0x31: // BRN $addr
+	case 0x51: // BRN $addr
 		if(mcu->Flags.N)
 			mcu->PC = WORD(oper_h, oper_l); // value
 		break;
-	case 0x32: // BRZ $addr
+	case 0x52: // BRZ $addr
 		if(mcu->Flags.Z)
 			mcu->PC = WORD(oper_h, oper_l); // value
 		break;
-	case 0x33: // BRP $addr
+	case 0x53: // BRP $addr
 		if(mcu->Flags.P)
 			mcu->PC = WORD(oper_h, oper_l); // value
 		break;
