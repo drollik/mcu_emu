@@ -5,13 +5,14 @@
  *      Author: olive
  */
 
+#include "../string/strmanip.h"
+
 #include <stdio.h>
 #include <stdbool.h>
 #include <assert.h>
 #include <string.h>
 #include <ctype.h>
 
-#include "strmanip.h"
 
 // returns true, if string str starts with the string pre, otherwise false.
 bool starts_with( const char* str, const char *pre ) {
@@ -30,7 +31,7 @@ char *skip_whitespace(const char* s) {
 // returns a pointer to the first non-whitespace character in s after character ch
 // or NULL if ch is not found within whitespace before the next non-whitespace
 // (effectively skipping any whitespace and exactly one occurrence of ch).
-// also returns NULL is ch is whitespace
+// also returns NULL if ch is whitespace
 // does not modify the string passed in s.
 char *skip_char_and_whitespace(const char *s, char ch) {
 	if( s == NULL || isspace(ch) ) return NULL;
@@ -43,12 +44,22 @@ char *skip_char_and_whitespace(const char *s, char ch) {
 // and trailing whitespace characters.
 // modifies the string s by replacing the the first whitespace in the
 // end of the string by '\0'
+// example: "  LD R1, R2  \t" => "LD R1, R2"
+
 char *trim_whitespace( char *s ) {
 	if( s == NULL ) return NULL;
 	s = skip_whitespace(s); // skip leading whitespace characters in s
 	char *p = s;
-	while( *p != '\0' && !isspace(*p) ) p++; // skip any non-whitespace characters
-	*p='\0'; // end string
+	char *q = NULL;
+//	while( *p != '\0' && !isspace(*p) ) p++; // skip any non-whitespace characters
+//	*p='\0'; // end string
+	while( *p != '\0' ) {
+		if( !isspace(*p) ) {
+			q = p; // q is the last non-whitespace character in s
+		}
+		p++;
+	}
+	if( q ) *(q+1) = '\0';
 	return s;
 }
 

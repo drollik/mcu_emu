@@ -41,6 +41,7 @@
 int main(void) {
 	//==========================================
 	printf("Host is %s endian.\n", HOST_IS_BE?"BIG":"LITTLE");
+	setbuf(stdout, NULL);
 
 	run_all_unittests(); // run all unit tests
 

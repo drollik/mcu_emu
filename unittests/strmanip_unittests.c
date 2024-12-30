@@ -10,11 +10,12 @@
 #include <stdbool.h>
 #include <strings.h>
 
-#include "../string/strmanip.h"
 #include "../asm/asm.h"
 #include "../uCUnit/uCUnit-v1.0.h"
 
 #include "strmanip_unittests.h"
+
+#include "../string/strmanip.h"
 
 static void _test_starts_with() {
 	// bool starts_with( const char* str, const char *pre );
@@ -146,7 +147,8 @@ static void _test_subst_char() {
 }
 
 void run_strmanip_unittest(void) {
-	UCUNIT_Init(); // initialize uCUnit test framework
+	// UCUNIT_Init(); // initialize uCUnit test framework
+	UCUNIT_ResetTracepointCoverage(); // unused
 
 	// all testcases here
 	_test_starts_with();
@@ -156,7 +158,7 @@ void run_strmanip_unittest(void) {
 	_test_subst_char();
 
 	UCUNIT_WriteSummary(); // uCUnit test summary
-	UCUNIT_Shutdown();
+	// UCUNIT_Shutdown();
 
 
 }
