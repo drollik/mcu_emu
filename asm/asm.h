@@ -20,9 +20,9 @@ typedef enum oper_e {
 	NON, // no operand
 	REG, // register: R1 ... R3
 	VAL, // immediate value: 0xABCD, 1234, -1234, const
-	ADI, // address: (0x1000), (label)
+	ADS, // storage address: (0x1000), (label)
 	ADR, // address in register: (R1) ... (R3)
-	ADB, // address for branch instruction $0x1000, $label
+	ADB, // immediate address for branch instruction $0x1000, $label
 	OPER_END // only for iterating through operand types
 } oper_t;
 
@@ -64,7 +64,10 @@ void find_op( char *s );
 bool get_register( char*str, int *reg );
 bool get_immediate_value( char *str, int16_t *val );
 bool get_storage_address( char *str, uint16_t *addr );
+bool get_register_address( char *str, int *reg ); // address in register: (R1) ... (R3)
+bool get_immediate_address( char *str, uint16_t *addr ); // $0x0000, $0xFFF, $256
+
 oper_t get_operand_type( char *str );
-void find_instruction( char *token[3] );
+int find_instruction( char *token[3] );
 
 #endif /* ASM_H_ */

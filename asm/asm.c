@@ -21,10 +21,10 @@ op_t ops[] = {
 // DATA MOVEMENT
 		{ 0x01, 2, "LD", REG, VAL }, // LD Rx, value
 		{ 0x02, 2, "LD", REG, REG }, // LD Rx, Ry
-		{ 0x03, 2, "LD", REG, ADI }, // LD Rx, (addr)
+		{ 0x03, 2, "LD", REG, ADS }, // LD Rx, (addr)
 		{ 0x04, 2, "LD", REG, ADR }, // LD Rx, (Ry)
 		// store
-		{ 0x10, 2, "ST", ADI, REG }, // ST (addr), Ry
+		{ 0x10, 2, "ST", ADS, REG }, // ST (addr), Ry
 		{ 0x11, 2, "ST", ADR, REG }, // ST (Rx), Ry
 		// DATA OPS
 		// ...
@@ -99,13 +99,38 @@ bool get_storage_address( char *str, uint16_t *addr ) { // (0x0000), (0xFFF), (2
 	return true;
 }
 
+bool get_register_address( char *str, int *reg ) { // address in register: (R1) ... (R3)
+	if(str[0] != '(' ) return false; // must starts with '('
+	if(str[1] != 'R' && str[1] != 'r') return false; // must start with R
+	if( !CHAR_IN(str[2], '0', '3') ) return false; // not a number 0..3
+	if(	str[3] != ')' ) return false; // must end with ')'
+	if(	str[4] != '\0' ) return false; // has leftover characters
+	if( reg ) *reg = str[2] -'0';
+	return true;
+}
+
+// immediate address for branching BRA $addr
+bool get_immediate_address( char *str, uint16_t *addr ) { // $0x0000, $0xFFF, $256
+	// XXX needs to be able to use lables!!!
+	if(str[0] != '$' ) return false; // must starts with '('
+    char* end = NULL;
+	str++;
+	const long i = strtol(str, &end, 0); // str to long, base 0 = auto-detect
+	if( str == end || errno != 0) return false; // decode error or overflow
+	if( i < 0 || 0xFFFF < i) return false; // out of range for 16 bit
+	if( *end != '\0') return false; // must end after address
+	if( addr ) *addr = (uint16_t)i;
+	return true;
+}
+
+
 oper_t get_operand_type( char *str ) {
 	if( str == NULL || *str == '\0') return NON;
 	else if( get_register( str, NULL ) ) return REG;
 	else if( get_immediate_value( str, NULL ) ) return VAL;
-	else if( get_storage_address( str, NULL ) ) return ADI;
-//	else if( get_register_address( str, NULL ) ) return ADR;
-//	else if( get_immediate_address( str, NULL ) ) return ADR;
+	else if( get_storage_address( str, NULL ) ) return ADS;
+	else if( get_register_address( str, NULL ) ) return ADR;
+	else if( get_immediate_address( str, NULL ) ) return ADR;
 	else return -666;
 }
 
@@ -123,12 +148,15 @@ oper_t get_operand_type( char *str ) {
 // static uint16_t current_address; // current memory address of the assembled code
 static llnode_t *labels = NULL; // list of labels with their corresponding addresses
 
-void find_instruction( char *token[3] ) {
+// finds the instruction in the instruction list (ops) and returns its index
+// or a negative value if the instruction could not be found.
+int find_instruction( char *token[3] ) {
 	printf( "%s %s, %s\n", token[0], token[1], token[2] );
+	int i, num_ops = sizeof(ops)/sizeof(ops[0]);
 
 	// for every instruction
-	for(int i = 0; i<sizeof(ops)/sizeof(ops[0]); i++ ) {
-		printf( "%3d: %s ", ops[i].opcode, ops[i].mnemonic );
+	for(i = 0; i<num_ops; i++ ) {
+		printf( "0x%3x: %s ", ops[i].opcode, ops[i].mnemonic );
 		printf( "%s, %s -- ", get_oper_name(ops[i].oper1), get_oper_name(ops[i].oper2) );
 
 		if( strcmp(token[0], ops[i].mnemonic) == 0) { // mnemonic match
@@ -147,12 +175,36 @@ void find_instruction( char *token[3] ) {
 				continue;
 			}
 		} else // NO mnemonic match
-			printf("-\n");
-
+			printf("\n");
 	} // end for every instruction
+
+	if( i >= num_ops) // instruction not found
+		return -666;
+	else
+		return i;
 }
 
 int assemble_line_(char *token[3], uint8_t *out) {
+
+	int inst_no = find_instruction(token);
+
+	// opcode always goes first
+	*(out+0) = ops[inst_no].opcode;
+
+	// in most ops, token[1] goes 2nd, and token[2] goes 3rd
+	// in one op, token[1] goes 3rd and token[2] goes 2nd: "ST (addr), Ry"
+	// in some ops without a token[2], token[1] goes 3rd: "BRA $0x1000"
+
+	// in other words:
+	// an address (ADS, ADV) or value (VAL), always goes 3rd in machine code
+	// (regardless if it's in token[1] or token[2]).
+
+	// registers (REG, ADR) in token[1] go 2nd
+	// UNLESS there is an address, then they go 3rd only in "ST (addr), Ry"/ op 0x10
+
+	// registers (REG, ADR) in token[2] go 3nd
+
+
 
 
 
