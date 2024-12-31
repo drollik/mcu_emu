@@ -13,32 +13,33 @@
 #include <ctype.h> // isspace
 
 #include "asm.h"
+#include "../mcu/mem.h" // HI_BYTE, LO_BYTE
 
 #include "../string/llist.h"
 #include "../string/strmanip.h"
 
 op_t ops[] = {
 // DATA MOVEMENT
-		{ 0x01, 2, "LD", REG, VAL }, // LD Rx, value
-		{ 0x02, 2, "LD", REG, REG }, // LD Rx, Ry
-		{ 0x03, 2, "LD", REG, ADS }, // LD Rx, (addr)
-		{ 0x04, 2, "LD", REG, ADR }, // LD Rx, (Ry)
+		{ 0x02, 2, "LD", REG, REG, b1, b3 }, // LD Rx, Ry
+		{ 0x01, 2, "LD", REG, VAL, b1, b23 }, // LD Rx, value
+		{ 0x04, 2, "LD", REG, ADR, b1, b3 }, // LD Rx, (Ry)
+		{ 0x03, 2, "LD", REG, ADS, b1, b23 }, // LD Rx, (addr)
 		// store
-		{ 0x10, 2, "ST", ADS, REG }, // ST (addr), Ry
-		{ 0x11, 2, "ST", ADR, REG }, // ST (Rx), Ry
+		{ 0x11, 2, "ST", ADR, REG, b3, b1 }, // ST (Rx), Ry -STORED BACKWARDS
+		{ 0x10, 2, "ST", ADS, REG, b23, b1}, // ST (addr), Ry -STORED BACKWARDS
 		// DATA OPS
 		// ...
-		{ 0x24, 1, "NOT", REG, NON }, // NOT Rx
+		{ 0x24, 1, "NOT", REG, NON, b1, xx }, // NOT Rx
 		// ...
 		// CONTROL OPS
-		{ 0x50, 1, "BRA", ADB, NON }, // BRA $addr
-		{ 0x51, 1, "BRN", ADB, NON }, // BRN $addr
-		{ 0x52, 1, "BRZ", ADB, NON }, // BRZ $addr
-		{ 0x53, 1, "BRP", ADB, NON }, // BRP $addr
+		{ 0x50, 1, "BRA", ADB, NON, b23, xx }, // BRA $addr
+		{ 0x51, 1, "BRN", ADB, NON, b23, xx }, // BRN $addr
+		{ 0x52, 1, "BRZ", ADB, NON, b23, xx }, // BRZ $addr
+		{ 0x53, 1, "BRP", ADB, NON, b23, xx }, // BRP $addr
 
 		// MISC
-		{ 0x00, 0, "NOP", NON, NON }, // NOP
-		{ 0xFF, 0, "HALT", NON, NON }, // HALT
+		{ 0x00, 0, "NOP", NON, NON, xx, xx }, // NOP
+		{ 0xFF, 0, "HALT", NON, NON, xx, xx }, // HALT
 		};
 
 static char * const oper_type_names[] ={
@@ -46,7 +47,7 @@ static char * const oper_type_names[] ={
 	"NON", // no operand
 	"REG", // register: R1 ... R3
 	"VAL", // immediate value: 0xABCD, 1234, -1234, const
-	"ADI", // address: (0x1000), (label)
+	"ADS", // storage address: (0x1000), (label)
 	"ADR", // address in register: (R1) ... (R3)
 	"ADB" // address for branch instruction $0x1000, $label
 };
@@ -80,7 +81,7 @@ bool get_register( char*str, int *reg ) { // R0, R1, R2, R3
 bool get_immediate_value( char *str, int16_t *val ) { // 0xFFF, 32, -1, -17
     char* end = NULL;
 	const long i = strtol(str, &end, 0); // str to long, base 0 = auto-detect
-	if( str == end || errno != 0) return false;
+	if( str == end || errno != 0) return false; // couldn't parse
 	if( i < -0x8000 || 0x7FFF < i) return false; // out of range
 	if( val ) *val = (int16_t)i;
 	return true;
@@ -124,14 +125,14 @@ bool get_immediate_address( char *str, uint16_t *addr ) { // $0x0000, $0xFFF, $2
 }
 
 
-oper_t get_operand_type( char *str ) {
+oper_t get_operand_type( char *str, void *data ) {
 	if( str == NULL || *str == '\0') return NON;
-	else if( get_register( str, NULL ) ) return REG;
-	else if( get_immediate_value( str, NULL ) ) return VAL;
-	else if( get_storage_address( str, NULL ) ) return ADS;
-	else if( get_register_address( str, NULL ) ) return ADR;
-	else if( get_immediate_address( str, NULL ) ) return ADR;
-	else return -666;
+	else if( get_register( str, data ) ) return REG;
+	else if( get_immediate_value( str, data ) ) return VAL;
+	else if( get_storage_address( str, data ) ) return ADS;
+	else if( get_register_address( str, data ) ) return ADR;
+	else if( get_immediate_address( str, data ) ) return ADB;
+	else return OPER_ERROR;
 }
 
 //typedef enum oper_e {
@@ -151,64 +152,112 @@ static llnode_t *labels = NULL; // list of labels with their corresponding addre
 // finds the instruction in the instruction list (ops) and returns its index
 // or a negative value if the instruction could not be found.
 int find_instruction( char *token[3] ) {
-	printf( "%s %s, %s\n", token[0], token[1], token[2] );
+	// PRINT_INSTR(token, "\n");
 	int i, num_ops = sizeof(ops)/sizeof(ops[0]);
 
 	// for every instruction
 	for(i = 0; i<num_ops; i++ ) {
-		printf( "0x%3x: %s ", ops[i].opcode, ops[i].mnemonic );
-		printf( "%s, %s -- ", get_oper_name(ops[i].oper1), get_oper_name(ops[i].oper2) );
+		// printf( "0x%3x: %s ", ops[i].opcode, ops[i].mnemonic );
+		// printf( "%s, %s -- ", get_oper_name(ops[i].oper1), get_oper_name(ops[i].oper2) );
 
 		if( strcmp(token[0], ops[i].mnemonic) == 0) { // mnemonic match
-			printf("might match - ");
-			if( get_operand_type(token[1]) == ops[i].oper1 ) {
-				printf("oper1 does match - "); // oper1 match
-				if( get_operand_type(token[2]) == ops[i].oper2 ) {
-					printf("and oper2 does match!\n"); // oper2 match
+			// printf("might match - ");
+			if( get_operand_type(token[1], NULL) == ops[i].oper1 ) {
+				// printf("oper1 does match - "); // oper1 match
+				if( get_operand_type(token[2], NULL) == ops[i].oper2 ) {
+					// printf("and oper2 does match!\n"); // oper2 match
 					break;
 				} else {
-					printf("but oper2 does NOT match\n");
+					// printf("but oper2 does NOT match\n");
 					continue;
 				}
 			} else {
-				printf("oper1 does NOT match\n");
+				// printf("oper1 does NOT match\n");
 				continue;
 			}
-		} else // NO mnemonic match
-			printf("\n");
+		} else {// NO mnemonic match
+			// printf("\n");
+		}
 	} // end for every instruction
 
-	if( i >= num_ops) // instruction not found
+	if( i >= num_ops) { // instruction not found
 		return -666;
-	else
+	} else
 		return i;
 }
 
-int assemble_line_(char *token[3], uint8_t *out) {
+int assemble_line(char *token[3], uint8_t *out) {
 
 	int inst_no = find_instruction(token);
+	if( inst_no < 0 ) {
+		printf("Parse ERROR: instruction not recognized: \'");
+		PRINT_INSTR(token, "\'\n");
+		return -1;
+	}
 
 	// opcode always goes first
 	*(out+0) = ops[inst_no].opcode;
+	*(out+1) = 0;
+	*(out+2) = 0;
+	*(out+3) = 0;
 
-	// in most ops, token[1] goes 2nd, and token[2] goes 3rd
-	// in one op, token[1] goes 3rd and token[2] goes 2nd: "ST (addr), Ry"
-	// in some ops without a token[2], token[1] goes 3rd: "BRA $0x1000"
+	uint32_t data = 0;
+	/*oper_t opert1 =*/ get_operand_type( token[1], &data );
 
-	// in other words:
-	// an address (ADS, ADV) or value (VAL), always goes 3rd in machine code
-	// (regardless if it's in token[1] or token[2]).
+	if( ops[inst_no].tok1 == xx ) {
+		// ignore
+	} else if( ops[inst_no].tok1 == b1 ) {
+		*(out+1) = (uint8_t)data;
+	} else if( ops[inst_no].tok1 == b3 ) {
+		*(out+2) = 0;
+		*(out+3) = (uint8_t)data;
+    } else if( ops[inst_no].tok1 == b23 ) {
+		*(out+2) = HI_BYTE(data);
+		*(out+3) = LO_BYTE(data);
+    } else {
+		printf("Internal ERROR in assembler at line %d in %s\n", __LINE__, __FILE__ );
+		// while(true) {}
+	}
 
-	// registers (REG, ADR) in token[1] go 2nd
-	// UNLESS there is an address, then they go 3rd only in "ST (addr), Ry"/ op 0x10
+	/*oper_t opert2 =*/ get_operand_type( token[2], &data );
+	switch( ops[inst_no].tok2 ) {
+	case xx: // ignore
+		break;
+	case b1:
+		*(out+1) = (uint8_t)data;
+		break;
+	case b3:
+		*(out+2) = 0;
+		*(out+3) = (uint8_t)data;
+		break;
+	case b23:
+		*(out+2) = HI_BYTE(data);
+		*(out+3) = LO_BYTE(data);
+		break;
+	default:
+		printf("Internal ERROR in assembler at line %d in %s\n", __LINE__, __FILE__ );
+		// while(true) {}
+	}
 
-	// registers (REG, ADR) in token[2] go 3nd
 
 
+//	if( ops[inst_no].tok2 == xx ) {
+//		// ignore
+//	} if( ops[inst_no].tok2 == b1 ) {
+//		*(out+1) = (uint8_t)data_t2;
+//	} else if( ops[inst_no].tok2 == b3 ) {
+//		*(out+2) = HI_BYTE(data_t2);
+//		*(out+3) = LO_BYTE(data_t2);
+//    } else if( ops[inst_no].tok2 == b23 ) {
+//		*(out+2) = 0;
+//		*(out+3) = (uint8_t)data_t2;
+//    } else {
+//		printf("Internal ERROR in assembler at line %d in %s\n", __LINE__, __FILE__ );
+//		while(true) {}
+//	}
 
 
-
-	return 666;
+	return 0;
 }
 
 

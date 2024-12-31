@@ -15,8 +15,8 @@
 
 typedef enum oper_e {
 
-	ERROR  = 0, // error
-	OPER_START = ERROR, // only for iterating through operand types
+	OPER_ERROR  = 0, // error
+	OPER_START = OPER_ERROR, // only for iterating through operand types
 	NON, // no operand
 	REG, // register: R1 ... R3
 	VAL, // immediate value: 0xABCD, 1234, -1234, const
@@ -26,12 +26,23 @@ typedef enum oper_e {
 	OPER_END // only for iterating through operand types
 } oper_t;
 
+// where the operands (tokens) are placed in memory, that is,
+// in which byte of the 4 byte instruction
+typedef enum tok2mem_e {
+	xx = 0, // this token is not put in the machine instruction
+	b1 = 1,  // this token is put in byte 1 of the the machine instruction
+	b3 = 2,  // this token is put in byte 3 of the the machine instruction
+	b23 = 3,  // this token is put in byte 2+3 of the the machine instruction
+} tok2mem_t;
+
 typedef struct op_s {
 	uint8_t opcode;
 	uint8_t operand_count;
 	char* mnemonic;
 	oper_t oper1;
 	oper_t oper2;
+	tok2mem_t tok1;
+	tok2mem_t tok2;
 } op_t;
 
 // parse a buffer with assembly language; write the opcode to out
@@ -67,7 +78,13 @@ bool get_storage_address( char *str, uint16_t *addr );
 bool get_register_address( char *str, int *reg ); // address in register: (R1) ... (R3)
 bool get_immediate_address( char *str, uint16_t *addr ); // $0x0000, $0xFFF, $256
 
-oper_t get_operand_type( char *str );
+oper_t get_operand_type( char *str, void *data );
+
+// print an instruction from 3 tokens passed as an array of 3: char *token[3]
+#define PRINT_INSTR(token,end) \
+	printf( "%s %s, %s%s\n", (token)[0], (token)[1], (token)[2], (end) )
+
 int find_instruction( char *token[3] );
+int assemble_line(char *token[3], uint8_t *out); // XXX remove return value
 
 #endif /* ASM_H_ */

@@ -9,6 +9,8 @@
 #include <strings.h>
 
 #include "../asm/asm.h"
+#include "../mcu/mem.h"
+
 #include "../uCUnit/uCUnit-v1.0.h"
 
 #include "asm_unittests.h"
@@ -153,6 +155,173 @@ void _test_parse_operands() {
 }
 
 
+void _test_get_operand() {
+	UCUNIT_TestcaseBegin("asm.get_operand()");
+
+	oper_t opertype = NON;
+	uint32_t data = 0;
+
+	opertype = get_operand_type( "R1", &data );
+	UCUNIT_CheckIsTrue( opertype == REG ); // true
+	UCUNIT_CheckIsTrue( (uint8_t)data == 1 );
+
+	opertype = get_operand_type( "0x1000", &data );
+	UCUNIT_CheckIsTrue( opertype == VAL ); // true
+	UCUNIT_CheckIsTrue( (int16_t)data == 0x1000 );
+
+	opertype = get_operand_type( "0xF", &data );
+	UCUNIT_CheckIsTrue( opertype == VAL ); // true
+	UCUNIT_CheckIsTrue( (int16_t)data == 0xF );
+
+	opertype = get_operand_type( "-0xF", &data );
+	UCUNIT_CheckIsTrue( opertype == VAL ); // true
+	UCUNIT_CheckIsTrue( (int16_t)data == -0xF);
+
+	opertype = get_operand_type( "-0x8000", &data );
+	UCUNIT_CheckIsTrue( opertype == VAL ); // true
+	UCUNIT_CheckIsTrue( (int16_t)data == -0x8000 );
+
+	opertype = get_operand_type( "0x7FFF", &data );
+	UCUNIT_CheckIsTrue( opertype == VAL ); // true
+	UCUNIT_CheckIsTrue( (int16_t)data == 0x7FFF );
+
+	opertype = get_operand_type( "-0x8001", &data ); // too small
+	UCUNIT_CheckIsTrue( opertype == OPER_ERROR ); // true
+
+	opertype = get_operand_type( "0x8000", &data ); // too big
+	UCUNIT_CheckIsTrue( opertype == OPER_ERROR ); // true
+
+	UCUNIT_TestcaseEnd();
+}
+
+void _test_assemble_line() {
+	UCUNIT_TestcaseBegin("asm.assemble_line()");
+
+	char *tokens[3];
+	uint8_t instr[4] = {0}; // the machine code for 1 instruction
+
+	// *** Data Movement ***
+	// LD Rx, value
+	tokens[0] = "LD"; tokens[1] = "R3", tokens[2] = "0x1000"; // opcode 0x01
+	assemble_line( tokens, instr );
+	UCUNIT_CheckIsEqual( 0x01, *(instr+0) ); // opcode
+	UCUNIT_CheckIsEqual( 3, *(instr+1) ); // register
+	UCUNIT_CheckIsEqual( HI_BYTE(0x1000), *(instr+2) ); // register
+	UCUNIT_CheckIsEqual( LO_BYTE(0x1000), *(instr+3) ); // register
+
+	// LD Rx, value
+	tokens[0] = "LD"; tokens[1] = "R2", tokens[2] = "0x0BAD"; // opcode 0x01
+	assemble_line( tokens, instr );
+	UCUNIT_CheckIsEqual( 0x01, *(instr+0) ); // opcode
+	UCUNIT_CheckIsEqual( 2, *(instr+1) ); // register
+	UCUNIT_CheckIsEqual( HI_BYTE(0x0BAD), *(instr+2) ); // register
+	UCUNIT_CheckIsEqual( LO_BYTE(0x0BAD), *(instr+3) ); // register
+
+	// LD Rx, value
+	tokens[0] = "LD"; tokens[1] = "R2", tokens[2] = "-0x8000"; // opcode 0x01
+	assemble_line( tokens, instr );
+	UCUNIT_CheckIsEqual( 0x01, *(instr+0) ); // opcode
+	UCUNIT_CheckIsEqual( 2, *(instr+1) ); // register
+	UCUNIT_CheckIsEqual( HI_BYTE(-0x8000), *(instr+2) ); // register
+	UCUNIT_CheckIsEqual( LO_BYTE(-0x8000), *(instr+3) ); // register
+
+	// LD Rx, value
+	tokens[0] = "LD"; tokens[1] = "R2", tokens[2] = "0x7FFF"; // opcode 0x01
+	assemble_line( tokens, instr );
+	UCUNIT_CheckIsEqual( 0x01, *(instr+0) ); // opcode
+	UCUNIT_CheckIsEqual( 2, *(instr+1) ); // register
+	UCUNIT_CheckIsEqual( HI_BYTE(0x7FFF), *(instr+2) ); // register
+	UCUNIT_CheckIsEqual( LO_BYTE(0x7FFF), *(instr+3) ); // register
+
+	// LD Rx, Ry
+	tokens[0] = "LD"; tokens[1] = "R1", tokens[2] = "R2"; // opcode 0x02
+	assemble_line( tokens, instr );
+	UCUNIT_CheckIsEqual( 0x02, *(instr+0) ); // opcode
+	UCUNIT_CheckIsEqual( 1, *(instr+1) ); // register R1
+	UCUNIT_CheckIsEqual( 0, *(instr+2) ); // x
+	UCUNIT_CheckIsEqual( 2, *(instr+3) ); // register R2
+
+	//	// LD Rx, (addr)
+	tokens[0] = "LD"; tokens[1] = "R3", tokens[2] = "(0x1000)"; // opcode 0x3
+	assemble_line( tokens, instr );
+	UCUNIT_CheckIsEqual( 0x03, *(instr+0) ); // opcode
+	UCUNIT_CheckIsEqual( 3, *(instr+1) ); // register R3
+	UCUNIT_CheckIsEqual( HI_BYTE(0x1000), *(instr+2) ); // 0x1000
+	UCUNIT_CheckIsEqual( LO_BYTE(0x1000), *(instr+3) ); // 0x1000
+
+
+	//	// LD Rx, (Ry)
+	tokens[0] = "LD"; tokens[1] = "R2", tokens[2] = "(R3)"; // opcode 0x4
+	assemble_line( tokens, instr );
+	UCUNIT_CheckIsEqual( 0x04, *(instr+0) ); // opcode
+	UCUNIT_CheckIsEqual( 2, *(instr+1) ); // register R2
+	UCUNIT_CheckIsEqual( 0, *(instr+2) ); // x
+	UCUNIT_CheckIsEqual( 3, *(instr+3) ); // register R3
+
+
+	//	// ST (addr), Ry - STORED BACKWARDS
+	tokens[0] = "ST"; tokens[1] = "(0x1000)", tokens[2] = "R3"; // opcode 0x10
+	assemble_line( tokens, instr );
+	UCUNIT_CheckIsEqual( 0x10, *(instr+0) ); // opcode
+	UCUNIT_CheckIsEqual( 3, *(instr+1) ); // register R3
+	UCUNIT_CheckIsEqual( HI_BYTE(0x1000), *(instr+2) ); // 0x1000
+	UCUNIT_CheckIsEqual( LO_BYTE(0x1000), *(instr+3) ); // 0x1000
+
+	//	// ST (Rx), Ry - STORED BACKWARDS
+	tokens[0] = "ST"; tokens[1] = "(R3)", tokens[2] = "R1"; // opcode 0x11
+	assemble_line( tokens, instr );
+	UCUNIT_CheckIsEqual( 0x11, *(instr+0) ); // opcode
+	UCUNIT_CheckIsEqual( 1, *(instr+1) ); // register R1
+	UCUNIT_CheckIsEqual( 0, *(instr+2) ); // x
+	UCUNIT_CheckIsEqual( 3, *(instr+3) ); // register R3
+
+	// *** Data Processing ***
+	// XXX TBD: 0x20 - 0x23
+
+	// NOT Rx
+	tokens[0] = "NOT"; tokens[1] = "R3", tokens[2] = ""; // opcode 0x24
+	assemble_line( tokens, instr );
+	UCUNIT_CheckIsEqual( 0x24, *(instr+0) ); // opcode
+	UCUNIT_CheckIsEqual( 3, *(instr+1) ); // register R3
+	UCUNIT_CheckIsEqual( 0, *(instr+2) ); // x
+	UCUNIT_CheckIsEqual( 0, *(instr+3) ); // x
+
+	// XXX TBD: 0x26 - 0x29
+
+	// *** Control Operations ***
+
+	// BRA $1000; BRA label
+	tokens[0] = "BRA"; tokens[1] = "$0x1000", tokens[2] = ""; // opcode 0x50
+	assemble_line( tokens, instr );
+	UCUNIT_CheckIsEqual( 0x50, *(instr+0) ); // opcode
+	UCUNIT_CheckIsEqual( 0, *(instr+1) ); // x
+	UCUNIT_CheckIsEqual( HI_BYTE(0x1000), *(instr+2) ); // 0x1000
+	UCUNIT_CheckIsEqual( LO_BYTE(0x1000), *(instr+3) ); // 0x1000
+
+	// XXX TBD: 0x51 - 0x53
+
+	// *** Misc Operations ***
+	// NOP
+	tokens[0] = "NOP"; tokens[1] = "", tokens[2] = ""; // opcode 0x00
+	assemble_line( tokens, instr );
+	UCUNIT_CheckIsEqual( 0x00, *(instr+0) ); // opcode
+	UCUNIT_CheckIsEqual( 0, *(instr+1) ); // x
+	UCUNIT_CheckIsEqual( 0, *(instr+2) ); // x
+	UCUNIT_CheckIsEqual( 0, *(instr+3) ); // x
+
+	// HALT
+	tokens[0] = "HALT"; tokens[1] = "", tokens[2] = ""; // opcode 0xFF
+	assemble_line( tokens, instr );
+	UCUNIT_CheckIsEqual( 0xFF, *(instr+0) ); // opcode
+	UCUNIT_CheckIsEqual( 0, *(instr+1) ); // x
+	UCUNIT_CheckIsEqual( 0, *(instr+2) ); // x
+	UCUNIT_CheckIsEqual( 0, *(instr+3) ); // x
+
+	UCUNIT_TestcaseEnd();
+}
+
+
+
 char lines[] = {
 		"   LD   R1, 0x1000  ; bla!! \n"\
 		"	LD R2 , R1	   ; copy shit\n"\
@@ -175,58 +344,85 @@ void _test_find_instruction() {
 
 	UCUNIT_TestcaseBegin("asm.find_instruction()");
 	char *tokens[3];
+	int instr_no = 0;
+	extern op_t ops[];
 
 	// *** Data Movement ***
 	// LD Rx, value
-	tokens[0] = "LD"; tokens[1] = "R1", tokens[2] = "0x1000";
-	find_instruction(tokens); // opcode 0x01
+	tokens[0] = "LD"; tokens[1] = "R1", tokens[2] = "0x1000"; // opcode 0x01
+	instr_no = find_instruction( tokens );
+	UCUNIT_CheckIsTrue( instr_no >= 0 ); // valid instruction number
+	UCUNIT_CheckIsTrue( 0x01 == ops[instr_no].opcode );
+
+	// LD Rx, value
+	tokens[0] = "LD"; tokens[1] = "R1", tokens[2] = "0xCAFE"; // opcode 0x01
+	instr_no = find_instruction( tokens );
+	UCUNIT_CheckIsTrue( instr_no < 0 ); // error: number too big
 
 	// LD Rx, Ry
-	tokens[0] = "LD"; tokens[1] = "R1", tokens[2] = "R2";
-	find_instruction(tokens); // opcode 0x02
+	tokens[0] = "LD"; tokens[1] = "R1", tokens[2] = "R2"; // opcode 0x02
+	instr_no = find_instruction( tokens );
+	UCUNIT_CheckIsTrue( instr_no >= 0 ); // valid instruction number
+	UCUNIT_CheckIsTrue( 0x02 == ops[instr_no].opcode );
 
 	// LD Rx, (addr)
-	tokens[0] = "LD"; tokens[1] = "R1", tokens[2] = "(0x1000)";
-	find_instruction(tokens); // opcode 0x03
+	tokens[0] = "LD"; tokens[1] = "R1", tokens[2] = "(0x1000)"; // opcode 0x03
+	instr_no = find_instruction( tokens );
+	UCUNIT_CheckIsTrue( instr_no >= 0 ); // valid instruction number
+	UCUNIT_CheckIsTrue( 0x03 == ops[instr_no].opcode );
 
 	// LD Rx, (Ry)
-	tokens[0] = "LD"; tokens[1] = "R1", tokens[2] = "(R2)";
-	find_instruction(tokens); // opcode 0x04
+	tokens[0] = "LD"; tokens[1] = "R1", tokens[2] = "(R2)"; // opcode 0x04
+	instr_no = find_instruction( tokens );
+	UCUNIT_CheckIsTrue( instr_no >= 0 ); // valid instruction number
+	UCUNIT_CheckIsTrue( 0x04 == ops[instr_no].opcode );
 
 	// ST (addr), Ry
-	tokens[0] = "ST"; tokens[1] = "(0x1000)", tokens[2] = "R1";
-	find_instruction(tokens); // opcode 0x10
+	tokens[0] = "ST"; tokens[1] = "(0x1000)", tokens[2] = "R1"; // opcode 0x10
+	instr_no = find_instruction( tokens );
+	UCUNIT_CheckIsTrue( instr_no >= 0 ); // valid instruction number
+	UCUNIT_CheckIsTrue( 0x10 == ops[instr_no].opcode );
 
 	// ST (Rx), Ry
-	tokens[0] = "ST"; tokens[1] = "(R3)", tokens[2] = "R1";
-	find_instruction(tokens); // opcode 0x11
+	tokens[0] = "ST"; tokens[1] = "(R3)", tokens[2] = "R1"; // opcode 0x11
+	instr_no = find_instruction( tokens );
+	UCUNIT_CheckIsTrue( instr_no >= 0 ); // valid instruction number
+	UCUNIT_CheckIsTrue( 0x11 == ops[instr_no].opcode );
+
 
 	// *** Data Processing ***
 	// XXX TBD: 0x20 - 0x23
 
 	// NOT Rx
-	tokens[0] = "NOT"; tokens[1] = "R3", tokens[2] = "";
-	find_instruction(tokens); // opcode 0x24
+	tokens[0] = "NOT"; tokens[1] = "R3", tokens[2] = ""; // opcode 0x24
+	instr_no = find_instruction( tokens );
+	UCUNIT_CheckIsTrue( instr_no >= 0 ); // valid instruction number
+	UCUNIT_CheckIsTrue( 0x24 == ops[instr_no].opcode );
 
 	// XXX TBD: 0x26 - 0x29
 
 	// *** Control Operations ***
 
 	// BRA $1000; BRA label
-	tokens[0] = "BRA"; tokens[1] = "$0x1000", tokens[2] = "";
-	find_instruction(tokens); // opcode 0x50
+	tokens[0] = "BRA"; tokens[1] = "$0x1000", tokens[2] = ""; // opcode 0x50
+	instr_no = find_instruction( tokens );
+	UCUNIT_CheckIsTrue( instr_no >= 0 ); // valid instruction number
+	UCUNIT_CheckIsTrue( 0x50 == ops[instr_no].opcode );
 
 	// XXX TBD: 0x51 - 0x53
 
 	// *** Misc Operations ***
 	// NOP
-	tokens[0] = "NOP"; tokens[1] = "", tokens[2] = "";
-	find_instruction(tokens); // opcode 0x00
+	tokens[0] = "NOP"; tokens[1] = "", tokens[2] = ""; // opcode 0x00
+	instr_no = find_instruction( tokens );
+	UCUNIT_CheckIsTrue( instr_no >= 0 ); // valid instruction number
+	UCUNIT_CheckIsTrue( 0x00 == ops[instr_no].opcode );
 
 	// HALT
-	tokens[0] = "HALT"; tokens[1] = "", tokens[2] = "";
-	find_instruction(tokens); // opcode 0xFF
-
+	tokens[0] = "HALT"; tokens[1] = "", tokens[2] = ""; // opcode 0xFF
+	instr_no = find_instruction( tokens );
+	UCUNIT_CheckIsTrue( instr_no >= 0 ); // valid instruction number
+	UCUNIT_CheckIsTrue( 0xFF == ops[instr_no].opcode );
 
 	UCUNIT_TestcaseEnd();
 }
@@ -249,6 +445,8 @@ void run_asm_unittests(void) {
 	UCUNIT_ResetTracepointCoverage(); // unused
 	_test_parse_operands();
 	_test_find_instruction();
+	_test_get_operand();
+	_test_assemble_line();
 	// _test_parse_all();
 	UCUNIT_WriteSummary(); // uCUnit test summary
 
