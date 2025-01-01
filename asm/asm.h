@@ -47,7 +47,7 @@ typedef struct op_s {
 
 // parse a buffer with assembly language; write the opcode to out
 // returns the number of bytes written to out
-size_t assemble_all( char *amsbuf, uint8_t *out );
+size_t assemble_buffer( char *amsbuf, uint8_t *out );
 
 // splits a given assembly language line in 3 tokens.
 // the string s is modified in the process!
@@ -86,5 +86,8 @@ oper_t get_operand( char *str, void *data );
 
 int find_instruction( char *token[3] );
 int assemble_instruction(char *token[3], uint8_t *out); // XXX remove return value
+
+// bla bla
+void assemble_file( const char *source_file, const char *output_file );
 
 #endif /* ASM_H_ */

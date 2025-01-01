@@ -240,7 +240,7 @@ int assemble_instruction(char *token[3], uint8_t *out) {
 
 // assembles a string buffer with assembly language and writes the machine code to out.
 // returns the number of bytes written to out.
-size_t assemble_all( char *amsbuf, uint8_t *out ) {
+size_t assemble_buffer( char *amsbuf, uint8_t *out ) {
 	size_t count = 0;
 	char delim[] = "\n";
 	char *next;
@@ -270,6 +270,39 @@ size_t assemble_all( char *amsbuf, uint8_t *out ) {
 	}
 	return count;
 }
+
+
+
+void assemble_file( const char *source_file, const char *output_file ) {
+    FILE *src = fopen(source_file, "r");
+    // FILE *out = fopen(output_file, "wb");
+
+    if (!src /*|| !out*/) {
+        perror("File error");
+        exit(1);
+    }
+
+    char line[256];
+    int line_no = 0;
+    uint8_t machine_code[1024];
+    size_t code_pos = 0;
+
+    while( fgets(line, sizeof(line), src) ) { // read a line
+    	line_no++;
+    	printf( "%3d: %s", line_no, line );
+    	// char *token[3];
+		// tokenize_line( next, token );
+		// assemble_instruction( token, uint8_t *out);
+    }
+
+    // fwrite(machine_code, 1, code_pos, out);
+
+    fclose(src);
+    // fclose(out);
+}
+
+
+
 
 int tokenize_line( char *s, char *token[3] ) {
 	// OP_________________________[space]_

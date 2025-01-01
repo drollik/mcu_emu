@@ -454,10 +454,10 @@ void _test_find_instruction() {
 	UCUNIT_TestcaseEnd();
 }
 
-void _test_assemble_all() {
+void _test_assemble_buffer() {
 	size_t count = 0;
-	UCUNIT_TestcaseBegin("asm.assemble_all()");
-	count = assemble_all( lines, mem );
+	UCUNIT_TestcaseBegin("asm.assemble_buffer()");
+	count = assemble_buffer( lines, mem );
 	label_print();
 
 	// expected, actual
@@ -474,7 +474,7 @@ void run_asm_unittests(void) {
 	_test_find_instruction();
 	_test_get_operand();
 	_test_assemble_instruction();
-	// _test_assemble_all;
+	// _test_assemble_buffer;
 	UCUNIT_WriteSummary(); // uCUnit test summary
 
 }
