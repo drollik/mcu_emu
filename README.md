@@ -14,3 +14,16 @@ Project on [github.com](https://github.com/drollik/mcu_emu)
 ** Unit testing**
 - [tst](https://github.com/rdentato/tst/tree/main)
 - [MinUnit](https://jera.com/techinfo/jtns/jtn002)
+
+## Todos
+
+### Assembler
+- Unit tests for assemble_instruction() for instructions
+    - ADD, SUB, AND, CMP, BRN, BRZ, BRP
+- Unit tests for find_instruction() for instructions
+    - ADD, SUB, AND, CMP, BRN, BRZ, BRP
+  
+### Emulator
+
+### Disassembler
+- pretty much everything?!
