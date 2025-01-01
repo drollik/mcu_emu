@@ -40,12 +40,22 @@
 							<tool id="cdt.managedbuild.tool.gnu.cpp.linker.mingw.exe.debug.593272494" name="MinGW C++ Linker" superClass="cdt.managedbuild.tool.gnu.cpp.linker.mingw.exe.debug"/>
 						</toolChain>
 					</folderInfo>
+					<folderInfo id="cdt.managedbuild.config.gnu.mingw.exe.debug.1606091120.145978904" name="/" resourcePath="testdata">
+						<toolChain id="cdt.managedbuild.toolchain.gnu.mingw.exe.debug.1275267998" name="MinGW GCC" superClass="cdt.managedbuild.toolchain.gnu.mingw.exe.debug" unusedChildren="">
+							<tool id="cdt.managedbuild.tool.gnu.assembler.mingw.exe.debug.1369366458" name="GCC Assembler" superClass="cdt.managedbuild.tool.gnu.assembler.mingw.exe.debug.1397022721"/>
+							<tool id="cdt.managedbuild.tool.gnu.archiver.mingw.base.1791615379" name="GCC Archiver" superClass="cdt.managedbuild.tool.gnu.archiver.mingw.base.123882043"/>
+							<tool id="cdt.managedbuild.tool.gnu.cpp.compiler.mingw.exe.debug.1494863147" name="GCC C++ Compiler" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.mingw.exe.debug.392977015"/>
+							<tool id="cdt.managedbuild.tool.gnu.c.compiler.mingw.exe.debug.1143522938" name="GCC C Compiler" superClass="cdt.managedbuild.tool.gnu.c.compiler.mingw.exe.debug.790332370"/>
+							<tool id="cdt.managedbuild.tool.gnu.c.linker.mingw.exe.debug.55011291" name="MinGW C Linker" superClass="cdt.managedbuild.tool.gnu.c.linker.mingw.exe.debug.845987933"/>
+							<tool id="cdt.managedbuild.tool.gnu.cpp.linker.mingw.exe.debug.1955647607" name="MinGW C++ Linker" superClass="cdt.managedbuild.tool.gnu.cpp.linker.mingw.exe.debug.593272494"/>
+						</toolChain>
+					</folderInfo>
 					<fileInfo id="cdt.managedbuild.config.gnu.mingw.exe.debug.1606091120.132552238" name="garyexplains_examples_ Example code used in my videos.url" rcbsApplicability="disable" resourcePath="doc/garyexplains_examples_ Example code used in my videos.url" toolsToInvoke=""/>
 					<fileInfo id="cdt.managedbuild.config.gnu.mingw.exe.debug.1606091120.1502397250" name="My CPU ISA design opcodes - Sheet1.pdf" rcbsApplicability="disable" resourcePath="doc/GeryExplains-InstructionSet.pdf" toolsToInvoke=""/>
 					<fileInfo id="cdt.managedbuild.config.gnu.mingw.exe.debug.1606091120.608270321" name="Instructions.xlsx" rcbsApplicability="disable" resourcePath="doc/Instructions.xlsx" toolsToInvoke=""/>
 					<fileInfo id="cdt.managedbuild.config.gnu.mingw.exe.debug.1606091120.823614556" name="vASM.py" rcbsApplicability="disable" resourcePath="doc/vASM.py" toolsToInvoke=""/>
 					<sourceEntries>
-						<entry excluding="doc/GeryExplains-InstructionSet.pdf|doc/Instructions.xlsx|doc/My CPU ISA design opcodes - Sheet1.pdf|doc/instructions.txt|Instructions.xlsx|instructions.txt|doc/garyexplains_examples_ Example code used in my videos.url|doc/vASM.py|doc" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry excluding="testdata|doc/GeryExplains-InstructionSet.pdf|doc/Instructions.xlsx|doc/My CPU ISA design opcodes - Sheet1.pdf|doc/instructions.txt|Instructions.xlsx|instructions.txt|doc/garyexplains_examples_ Example code used in my videos.url|doc/vASM.py|doc" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>
