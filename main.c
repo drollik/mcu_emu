@@ -30,19 +30,35 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <unistd.h> // getcwd()
 
 #include "mcu/endianness.h"
 #include "mcu/mem.h" // memory
 #include "mcu/mcu.h" // mcu
+#include "asm/asm.h" // assembler
+
 #include "unittests/unittests.h" // mcu
 
 
 int main(void) {
 	//==========================================
 	printf("Host is %s endian.\n", HOST_IS_BE?"BIG":"LITTLE");
-	setbuf(stdout, NULL);
+	setbuf(stdout, NULL); // for debugging output to appear immediately after printf
 
-	run_all_unittests(); // run all unit tests
+
+	char cwd[PATH_MAX+1];
+	if (getcwd(cwd, sizeof(cwd)) != NULL) {
+		printf("Current working dir: %s\n", cwd);
+	} else {
+		perror("getcwd() error");
+		return 1;
+	}
+
+	const char *source_file = "./testdata/for_i_1_to_10.asm";
+	const char *output_file = NULL;
+	assemble_file( source_file, output_file );
+
+	// run_all_unittests(); // run all unit tests
 
 	// TBD: do command line parsing
 	// TBD: -a assemble: assemble given file and produce executable machine code
