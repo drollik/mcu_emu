@@ -37,13 +37,17 @@
 #include "unittests/unittests.h" // mcu
 
 
-
 int main(void) {
 	//==========================================
 	printf("Host is %s endian.\n", HOST_IS_BE?"BIG":"LITTLE");
 	setbuf(stdout, NULL);
 
 	run_all_unittests(); // run all unit tests
+
+	// TBD: do command line parsing
+	// TBD: -a assemble: assemble given file and produce executable machine code
+	// TBD: -d disassemble: disassemble given file and produce assembly language
+	// TBD: neither -a or -d: run the machine code in the given file
 
 	return 0;
 

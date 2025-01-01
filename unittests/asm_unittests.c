@@ -149,7 +149,25 @@ void _test_parse_operands() {
 	// bool get_immediate_address( char *str, uint16_t *addr ) { // $0x0000, $0xFFF, $256
 	// operand type:ADB
 
-	//	oper_t get_operand_type( char *str );
+	ok = get_immediate_address("$0", &addr );
+	UCUNIT_CheckIsTrue( ok ); // true
+	UCUNIT_CheckIsTrue( addr == 0 );
+
+	ok = get_immediate_address("$0x1000", &addr );
+	UCUNIT_CheckIsTrue( ok ); // true
+	UCUNIT_CheckIsTrue( addr == 0x1000 );
+
+	ok = get_immediate_address("$0xFFFF", &addr );
+	UCUNIT_CheckIsTrue( ok ); // true
+	UCUNIT_CheckIsTrue( addr == 0xFFFF );
+
+	ok = get_immediate_address("$0x1FFFF", &addr ); // to big
+	UCUNIT_CheckIsFalse( ok ); // true
+
+	ok = get_immediate_address("$-0x0001", &addr ); // to small
+	UCUNIT_CheckIsFalse( ok ); // true
+
+	// XXX tests missing?
 
 	UCUNIT_TestcaseEnd();
 }
@@ -161,41 +179,41 @@ void _test_get_operand() {
 	oper_t opertype = NON;
 	uint32_t data = 0;
 
-	opertype = get_operand_type( "R1", &data );
+	opertype = get_operand( "R1", &data );
 	UCUNIT_CheckIsTrue( opertype == REG ); // true
 	UCUNIT_CheckIsTrue( (uint8_t)data == 1 );
 
-	opertype = get_operand_type( "0x1000", &data );
+	opertype = get_operand( "0x1000", &data );
 	UCUNIT_CheckIsTrue( opertype == VAL ); // true
 	UCUNIT_CheckIsTrue( (int16_t)data == 0x1000 );
 
-	opertype = get_operand_type( "0xF", &data );
+	opertype = get_operand( "0xF", &data );
 	UCUNIT_CheckIsTrue( opertype == VAL ); // true
 	UCUNIT_CheckIsTrue( (int16_t)data == 0xF );
 
-	opertype = get_operand_type( "-0xF", &data );
+	opertype = get_operand( "-0xF", &data );
 	UCUNIT_CheckIsTrue( opertype == VAL ); // true
 	UCUNIT_CheckIsTrue( (int16_t)data == -0xF);
 
-	opertype = get_operand_type( "-0x8000", &data );
+	opertype = get_operand( "-0x8000", &data );
 	UCUNIT_CheckIsTrue( opertype == VAL ); // true
 	UCUNIT_CheckIsTrue( (int16_t)data == -0x8000 );
 
-	opertype = get_operand_type( "0x7FFF", &data );
+	opertype = get_operand( "0x7FFF", &data );
 	UCUNIT_CheckIsTrue( opertype == VAL ); // true
 	UCUNIT_CheckIsTrue( (int16_t)data == 0x7FFF );
 
-	opertype = get_operand_type( "-0x8001", &data ); // too small
+	opertype = get_operand( "-0x8001", &data ); // too small
 	UCUNIT_CheckIsTrue( opertype == OPER_ERROR ); // true
 
-	opertype = get_operand_type( "0x8000", &data ); // too big
+	opertype = get_operand( "0x8000", &data ); // too big
 	UCUNIT_CheckIsTrue( opertype == OPER_ERROR ); // true
 
 	UCUNIT_TestcaseEnd();
 }
 
-void _test_assemble_line() {
-	UCUNIT_TestcaseBegin("asm.assemble_line()");
+void _test_assemble_instruction() {
+	UCUNIT_TestcaseBegin("asm.assemble_instruction()");
 
 	char *tokens[3];
 	uint8_t instr[4] = {0}; // the machine code for 1 instruction
@@ -203,7 +221,7 @@ void _test_assemble_line() {
 	// *** Data Movement ***
 	// LD Rx, value
 	tokens[0] = "LD"; tokens[1] = "R3", tokens[2] = "0x1000"; // opcode 0x01
-	assemble_line( tokens, instr );
+	assemble_instruction( tokens, instr );
 	UCUNIT_CheckIsEqual( 0x01, *(instr+0) ); // opcode
 	UCUNIT_CheckIsEqual( 3, *(instr+1) ); // register
 	UCUNIT_CheckIsEqual( HI_BYTE(0x1000), *(instr+2) ); // register
@@ -211,7 +229,7 @@ void _test_assemble_line() {
 
 	// LD Rx, value
 	tokens[0] = "LD"; tokens[1] = "R2", tokens[2] = "0x0BAD"; // opcode 0x01
-	assemble_line( tokens, instr );
+	assemble_instruction( tokens, instr );
 	UCUNIT_CheckIsEqual( 0x01, *(instr+0) ); // opcode
 	UCUNIT_CheckIsEqual( 2, *(instr+1) ); // register
 	UCUNIT_CheckIsEqual( HI_BYTE(0x0BAD), *(instr+2) ); // register
@@ -219,7 +237,7 @@ void _test_assemble_line() {
 
 	// LD Rx, value
 	tokens[0] = "LD"; tokens[1] = "R2", tokens[2] = "-0x8000"; // opcode 0x01
-	assemble_line( tokens, instr );
+	assemble_instruction( tokens, instr );
 	UCUNIT_CheckIsEqual( 0x01, *(instr+0) ); // opcode
 	UCUNIT_CheckIsEqual( 2, *(instr+1) ); // register
 	UCUNIT_CheckIsEqual( HI_BYTE(-0x8000), *(instr+2) ); // register
@@ -227,7 +245,7 @@ void _test_assemble_line() {
 
 	// LD Rx, value
 	tokens[0] = "LD"; tokens[1] = "R2", tokens[2] = "0x7FFF"; // opcode 0x01
-	assemble_line( tokens, instr );
+	assemble_instruction( tokens, instr );
 	UCUNIT_CheckIsEqual( 0x01, *(instr+0) ); // opcode
 	UCUNIT_CheckIsEqual( 2, *(instr+1) ); // register
 	UCUNIT_CheckIsEqual( HI_BYTE(0x7FFF), *(instr+2) ); // register
@@ -235,41 +253,39 @@ void _test_assemble_line() {
 
 	// LD Rx, Ry
 	tokens[0] = "LD"; tokens[1] = "R1", tokens[2] = "R2"; // opcode 0x02
-	assemble_line( tokens, instr );
+	assemble_instruction( tokens, instr );
 	UCUNIT_CheckIsEqual( 0x02, *(instr+0) ); // opcode
 	UCUNIT_CheckIsEqual( 1, *(instr+1) ); // register R1
 	UCUNIT_CheckIsEqual( 0, *(instr+2) ); // x
 	UCUNIT_CheckIsEqual( 2, *(instr+3) ); // register R2
 
-	//	// LD Rx, (addr)
+	// LD Rx, (addr)
 	tokens[0] = "LD"; tokens[1] = "R3", tokens[2] = "(0x1000)"; // opcode 0x3
-	assemble_line( tokens, instr );
+	assemble_instruction( tokens, instr );
 	UCUNIT_CheckIsEqual( 0x03, *(instr+0) ); // opcode
 	UCUNIT_CheckIsEqual( 3, *(instr+1) ); // register R3
 	UCUNIT_CheckIsEqual( HI_BYTE(0x1000), *(instr+2) ); // 0x1000
 	UCUNIT_CheckIsEqual( LO_BYTE(0x1000), *(instr+3) ); // 0x1000
 
-
-	//	// LD Rx, (Ry)
+	// LD Rx, (Ry)
 	tokens[0] = "LD"; tokens[1] = "R2", tokens[2] = "(R3)"; // opcode 0x4
-	assemble_line( tokens, instr );
+	assemble_instruction( tokens, instr );
 	UCUNIT_CheckIsEqual( 0x04, *(instr+0) ); // opcode
 	UCUNIT_CheckIsEqual( 2, *(instr+1) ); // register R2
 	UCUNIT_CheckIsEqual( 0, *(instr+2) ); // x
 	UCUNIT_CheckIsEqual( 3, *(instr+3) ); // register R3
 
-
-	//	// ST (addr), Ry - STORED BACKWARDS
+	// ST (addr), Ry - STORED BACKWARDS
 	tokens[0] = "ST"; tokens[1] = "(0x1000)", tokens[2] = "R3"; // opcode 0x10
-	assemble_line( tokens, instr );
+	assemble_instruction( tokens, instr );
 	UCUNIT_CheckIsEqual( 0x10, *(instr+0) ); // opcode
 	UCUNIT_CheckIsEqual( 3, *(instr+1) ); // register R3
 	UCUNIT_CheckIsEqual( HI_BYTE(0x1000), *(instr+2) ); // 0x1000
 	UCUNIT_CheckIsEqual( LO_BYTE(0x1000), *(instr+3) ); // 0x1000
 
-	//	// ST (Rx), Ry - STORED BACKWARDS
+	// ST (Rx), Ry - STORED BACKWARDS
 	tokens[0] = "ST"; tokens[1] = "(R3)", tokens[2] = "R1"; // opcode 0x11
-	assemble_line( tokens, instr );
+	assemble_instruction( tokens, instr );
 	UCUNIT_CheckIsEqual( 0x11, *(instr+0) ); // opcode
 	UCUNIT_CheckIsEqual( 1, *(instr+1) ); // register R1
 	UCUNIT_CheckIsEqual( 0, *(instr+2) ); // x
@@ -277,33 +293,44 @@ void _test_assemble_line() {
 
 	// *** Data Processing ***
 	// XXX TBD: 0x20 - 0x23
+	// ADD Rx, value
+	// ADD Rx, Ry
+	// SUB Rx, value
+	// SUB Rx, Ry
 
 	// NOT Rx
 	tokens[0] = "NOT"; tokens[1] = "R3", tokens[2] = ""; // opcode 0x24
-	assemble_line( tokens, instr );
+	assemble_instruction( tokens, instr );
 	UCUNIT_CheckIsEqual( 0x24, *(instr+0) ); // opcode
 	UCUNIT_CheckIsEqual( 3, *(instr+1) ); // register R3
 	UCUNIT_CheckIsEqual( 0, *(instr+2) ); // x
 	UCUNIT_CheckIsEqual( 0, *(instr+3) ); // x
 
 	// XXX TBD: 0x26 - 0x29
+	// AND Rx, value
+	// AND Rx, Ry
+	// CMP Rx, value
+	// CMP Rx, Ry
 
 	// *** Control Operations ***
 
 	// BRA $1000; BRA label
 	tokens[0] = "BRA"; tokens[1] = "$0x1000", tokens[2] = ""; // opcode 0x50
-	assemble_line( tokens, instr );
+	assemble_instruction( tokens, instr );
 	UCUNIT_CheckIsEqual( 0x50, *(instr+0) ); // opcode
 	UCUNIT_CheckIsEqual( 0, *(instr+1) ); // x
 	UCUNIT_CheckIsEqual( HI_BYTE(0x1000), *(instr+2) ); // 0x1000
 	UCUNIT_CheckIsEqual( LO_BYTE(0x1000), *(instr+3) ); // 0x1000
 
 	// XXX TBD: 0x51 - 0x53
+	// BRN $addr
+	// BRZ $addr
+	// BRP $addr
 
 	// *** Misc Operations ***
 	// NOP
 	tokens[0] = "NOP"; tokens[1] = "", tokens[2] = ""; // opcode 0x00
-	assemble_line( tokens, instr );
+	assemble_instruction( tokens, instr );
 	UCUNIT_CheckIsEqual( 0x00, *(instr+0) ); // opcode
 	UCUNIT_CheckIsEqual( 0, *(instr+1) ); // x
 	UCUNIT_CheckIsEqual( 0, *(instr+2) ); // x
@@ -311,7 +338,7 @@ void _test_assemble_line() {
 
 	// HALT
 	tokens[0] = "HALT"; tokens[1] = "", tokens[2] = ""; // opcode 0xFF
-	assemble_line( tokens, instr );
+	assemble_instruction( tokens, instr );
 	UCUNIT_CheckIsEqual( 0xFF, *(instr+0) ); // opcode
 	UCUNIT_CheckIsEqual( 0, *(instr+1) ); // x
 	UCUNIT_CheckIsEqual( 0, *(instr+2) ); // x
@@ -427,10 +454,10 @@ void _test_find_instruction() {
 	UCUNIT_TestcaseEnd();
 }
 
-void _test_parse_all() {
+void _test_assemble_all() {
 	size_t count = 0;
-	UCUNIT_TestcaseBegin("asm.parse_all()");
-	count = parse_all( lines, mem );
+	UCUNIT_TestcaseBegin("asm.assemble_all()");
+	count = assemble_all( lines, mem );
 	label_print();
 
 	// expected, actual
@@ -446,36 +473,8 @@ void run_asm_unittests(void) {
 	_test_parse_operands();
 	_test_find_instruction();
 	_test_get_operand();
-	_test_assemble_line();
-	// _test_parse_all();
+	_test_assemble_instruction();
+	// _test_assemble_all;
 	UCUNIT_WriteSummary(); // uCUnit test summary
 
-
-//	char delim[]="\n";
-//	char *next;
-//	char *lines_save;
-//
-//	// break lines at the newline (\n) char - modifies the input!
-//	next = strtok_r(lines, delim, &lines_save);
-//	while( next != NULL) {
-//		printf("XXX: check if label!!\n");
-//
-//		printf("Looking at   [%s]:\n", next);
-//		next = remove_comments(next);
-//		printf("wo comments: [%s]:\n", next);
-//		next = trim_whitespace(next);
-//		printf("trimmed:     [%s]:\n", next);
-//
-//		next = extract_label( next );
-//		next = trim_whitespace(next);
-//
-//		char* token[3];
-//		tokenize_line(next, token);
-//		printf( "  OP: %s\n", token[0] );
-//		printf( "  OPER1: %s\n", token[1] );
-//		printf( "  OPER2: %s\n", token[2] );
-//
-//		// find_op(next);
-//		next = strtok_r(NULL, delim, &lines_save);
-//	}
 }

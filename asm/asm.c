@@ -18,19 +18,30 @@
 #include "../string/llist.h"
 #include "../string/strmanip.h"
 
+
+// this table determines how assembly language is assembled into machine code
 op_t ops[] = {
-// DATA MOVEMENT
-		{ 0x02, 2, "LD", REG, REG, b1, b3 }, // LD Rx, Ry
-		{ 0x01, 2, "LD", REG, VAL, b1, b23 }, // LD Rx, value
-		{ 0x04, 2, "LD", REG, ADR, b1, b3 }, // LD Rx, (Ry)
-		{ 0x03, 2, "LD", REG, ADS, b1, b23 }, // LD Rx, (addr)
+		// DATA MOVEMENT
+		{ 0x01, 2, "LD", REG, VAL, b1, b23 },  // LD Rx, value
+		{ 0x02, 2, "LD", REG, REG, b1, b_3 },  // LD Rx, Ry
+		{ 0x03, 2, "LD", REG, ADS, b1, b23 },  // LD Rx, (addr)
+		{ 0x04, 2, "LD", REG, ADR, b1, b_3 },  // LD Rx, (Ry)
 		// store
-		{ 0x11, 2, "ST", ADR, REG, b3, b1 }, // ST (Rx), Ry -STORED BACKWARDS
-		{ 0x10, 2, "ST", ADS, REG, b23, b1}, // ST (addr), Ry -STORED BACKWARDS
+		{ 0x10, 2, "ST", ADS, REG, b23, b1},   // ST (addr), Ry -STORED BACKWARDS
+		{ 0x11, 2, "ST", ADR, REG, b_3, b1 },  // ST (Rx), Ry -STORED BACKWARDS
 		// DATA OPS
-		// ...
-		{ 0x24, 1, "NOT", REG, NON, b1, xx }, // NOT Rx
-		// ...
+		// and, sub
+		{ 0x20, 2, "ADD", REG, VAL, b1, b23 }, // ADD Rx, value
+		{ 0x21, 2, "ADD", REG, REG, b1, b_3 }, // ADD Rx, Ry
+		{ 0x22, 2, "SUB", REG, VAL, b1, b23 }, // SUB Rx, value
+		{ 0x23, 2, "SUB", REG, REG, b1, b_3 }, // SUB Rx, Ry
+		// not
+		{ 0x24, 1, "NOT", REG, NON, b1, xx },  // NOT Rx
+		// and, cmp
+		{ 0x26, 2, "AND", REG, VAL, b1, b23 }, // ADD Rx, value
+		{ 0x27, 2, "AND", REG, REG, b1, b_3 }, // ADD Rx, Ry
+		{ 0x28, 2, "CMP", REG, VAL, b1, b23 }, // ADD Rx, value
+		{ 0x29, 2, "CMP", REG, REG, b1, b_3 }, // ADD Rx, Ry
 		// CONTROL OPS
 		{ 0x50, 1, "BRA", ADB, NON, b23, xx }, // BRA $addr
 		{ 0x51, 1, "BRN", ADB, NON, b23, xx }, // BRN $addr
@@ -38,9 +49,9 @@ op_t ops[] = {
 		{ 0x53, 1, "BRP", ADB, NON, b23, xx }, // BRP $addr
 
 		// MISC
-		{ 0x00, 0, "NOP", NON, NON, xx, xx }, // NOP
+		{ 0x00, 0, "NOP", NON, NON, xx, xx },  // NOP
 		{ 0xFF, 0, "HALT", NON, NON, xx, xx }, // HALT
-		};
+};
 
 static char * const oper_type_names[] ={
 	"ERROR", // error
@@ -52,6 +63,7 @@ static char * const oper_type_names[] ={
 	"ADB" // address for branch instruction $0x1000, $label
 };
 
+// returns the name of an oper_t as const string.
 const char * get_oper_name( oper_t op ) {
 	if( op < OPER_START || OPER_END < op ) return "unknown operand type";
 	return oper_type_names[op];
@@ -59,16 +71,6 @@ const char * get_oper_name( oper_t op ) {
 
 // CHAR_IN('3', '0', '3')
 #define CHAR_IN(ch,srt,end) ((srt)<=(ch) && (ch) <=(end))
-
-//bool is_register(char *str) {
-//	if(str[0] != 'R' && str[0] != 'r') return false;
-//	return CHAR_IN(str[1], '0', '3') && str[2] == '\0';
-//}
-//
-//int get_register2( char *str ) {
-//	if( is_register(str) ) return -1;
-//	else return '0' - str[1];
-//}
 
 bool get_register( char*str, int *reg ) { // R0, R1, R2, R3
 	if(str[0] != 'R' && str[0] != 'r') return false; // must starts with R
@@ -125,26 +127,15 @@ bool get_immediate_address( char *str, uint16_t *addr ) { // $0x0000, $0xFFF, $2
 }
 
 
-oper_t get_operand_type( char *str, void *data ) {
+oper_t get_operand( char *str, void *data ) {
 	if( str == NULL || *str == '\0') return NON;
-	else if( get_register( str, data ) ) return REG;
-	else if( get_immediate_value( str, data ) ) return VAL;
-	else if( get_storage_address( str, data ) ) return ADS;
-	else if( get_register_address( str, data ) ) return ADR;
-	else if( get_immediate_address( str, data ) ) return ADB;
+	else if( get_register( str, data ) ) return REG;// R1 ... R3
+	else if( get_immediate_value( str, data ) ) return VAL; // 0xABCD, -1234, XXX label?
+	else if( get_storage_address( str, data ) ) return ADS; // (0x1000), (label)
+	else if( get_register_address( str, data ) ) return ADR; // (R1) ... (R3)
+	else if( get_immediate_address( str, data ) ) return ADB; //  $0x1000, $label
 	else return OPER_ERROR;
 }
-
-//typedef enum oper_e {
-//	ERROR = 0,
-//	NON, // no operand
-//	REG, // register: R1 ... R3
-//	VAL, // immediate value: 0xABCD, 1234, -1234, const
-//	ADI, // storage address: (0x1000), (label)
-//	ADR, // address in register: (R1) ... (R3)
-//	ADB // address for branch instruction $0x1000, $label
-//} oper_t;
-
 
 // static uint16_t current_address; // current memory address of the assembled code
 static llnode_t *labels = NULL; // list of labels with their corresponding addresses
@@ -162,9 +153,9 @@ int find_instruction( char *token[3] ) {
 
 		if( strcmp(token[0], ops[i].mnemonic) == 0) { // mnemonic match
 			// printf("might match - ");
-			if( get_operand_type(token[1], NULL) == ops[i].oper1 ) {
+			if( get_operand(token[1], NULL) == ops[i].oper1 ) {
 				// printf("oper1 does match - "); // oper1 match
-				if( get_operand_type(token[2], NULL) == ops[i].oper2 ) {
+				if( get_operand(token[2], NULL) == ops[i].oper2 ) {
 					// printf("and oper2 does match!\n"); // oper2 match
 					break;
 				} else {
@@ -186,7 +177,7 @@ int find_instruction( char *token[3] ) {
 		return i;
 }
 
-int assemble_line(char *token[3], uint8_t *out) {
+int assemble_instruction(char *token[3], uint8_t *out) {
 
 	int inst_no = find_instruction(token);
 	if( inst_no < 0 ) {
@@ -201,32 +192,16 @@ int assemble_line(char *token[3], uint8_t *out) {
 	*(out+2) = 0;
 	*(out+3) = 0;
 
+	// XXX replace spaghetti-code with something more elegant, please
 	uint32_t data = 0;
-	/*oper_t opert1 =*/ get_operand_type( token[1], &data );
-
-	if( ops[inst_no].tok1 == xx ) {
-		// ignore
-	} else if( ops[inst_no].tok1 == b1 ) {
-		*(out+1) = (uint8_t)data;
-	} else if( ops[inst_no].tok1 == b3 ) {
-		*(out+2) = 0;
-		*(out+3) = (uint8_t)data;
-    } else if( ops[inst_no].tok1 == b23 ) {
-		*(out+2) = HI_BYTE(data);
-		*(out+3) = LO_BYTE(data);
-    } else {
-		printf("Internal ERROR in assembler at line %d in %s\n", __LINE__, __FILE__ );
-		// while(true) {}
-	}
-
-	/*oper_t opert2 =*/ get_operand_type( token[2], &data );
-	switch( ops[inst_no].tok2 ) {
+	/*oper_t opert1 =*/ get_operand( token[1], &data );
+	switch( ops[inst_no].tok1 ) {
 	case xx: // ignore
 		break;
 	case b1:
 		*(out+1) = (uint8_t)data;
 		break;
-	case b3:
+	case b_3:
 		*(out+2) = 0;
 		*(out+3) = (uint8_t)data;
 		break;
@@ -239,31 +214,33 @@ int assemble_line(char *token[3], uint8_t *out) {
 		// while(true) {}
 	}
 
-
-
-//	if( ops[inst_no].tok2 == xx ) {
-//		// ignore
-//	} if( ops[inst_no].tok2 == b1 ) {
-//		*(out+1) = (uint8_t)data_t2;
-//	} else if( ops[inst_no].tok2 == b3 ) {
-//		*(out+2) = HI_BYTE(data_t2);
-//		*(out+3) = LO_BYTE(data_t2);
-//    } else if( ops[inst_no].tok2 == b23 ) {
-//		*(out+2) = 0;
-//		*(out+3) = (uint8_t)data_t2;
-//    } else {
-//		printf("Internal ERROR in assembler at line %d in %s\n", __LINE__, __FILE__ );
-//		while(true) {}
-//	}
-
+	/*oper_t opert2 =*/ get_operand( token[2], &data );
+	switch( ops[inst_no].tok2 ) {
+	case xx: // ignore
+		break;
+	case b1:
+		*(out+1) = (uint8_t)data;
+		break;
+	case b_3:
+		*(out+2) = 0;
+		*(out+3) = (uint8_t)data;
+		break;
+	case b23:
+		*(out+2) = HI_BYTE(data);
+		*(out+3) = LO_BYTE(data);
+		break;
+	default:
+		printf("Internal ERROR in assembler at line %d in %s\n", __LINE__, __FILE__ );
+		// while(true) {}
+	}
 
 	return 0;
 }
 
 
-// parse a buffer with assembly language; write the opcode to out
-// returns the number of bytes written to out
-size_t parse_all( char *amsbuf, uint8_t *out ) {
+// assembles a string buffer with assembly language and writes the machine code to out.
+// returns the number of bytes written to out.
+size_t assemble_all( char *amsbuf, uint8_t *out ) {
 	size_t count = 0;
 	char delim[] = "\n";
 	char *next;
@@ -294,7 +271,7 @@ size_t parse_all( char *amsbuf, uint8_t *out ) {
 	return count;
 }
 
-int tokenize_line(char *s, char *token[3]) {
+int tokenize_line( char *s, char *token[3] ) {
 	// OP_________________________[space]_
 	// OP_space_OPER1_____________[space]_
 	// OP_space_OPER1_comma_OPER2_[space]_
@@ -374,16 +351,5 @@ int label_numelems() {
 	return list_numelems( labels );
 }
 
-// XXX: to be done
-void find_op(char *s) {
-	for (int i = 0; i < sizeof(ops) / sizeof(ops[0]); i++) { // for all ops ...
 
-		// check if mnemonic matches
-		// XXX check if there is a whitespace following the mnemonic!
-		if (starts_with( s, ops[i].mnemonic )) {
-			printf( "  Mnemonic of [%s] matches opcode 0x%X\n", s,
-					ops[i].opcode );
-		}
-	}
-} // end find_op()
 

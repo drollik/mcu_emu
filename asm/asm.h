@@ -31,31 +31,34 @@ typedef enum oper_e {
 typedef enum tok2mem_e {
 	xx = 0, // this token is not put in the machine instruction
 	b1 = 1,  // this token is put in byte 1 of the the machine instruction
-	b3 = 2,  // this token is put in byte 3 of the the machine instruction
+	b_3 = 2,  // this token is put in byte 3 of the the machine instruction, byte 2 is x
 	b23 = 3,  // this token is put in byte 2+3 of the the machine instruction
 } tok2mem_t;
 
 typedef struct op_s {
-	uint8_t opcode;
-	uint8_t operand_count;
-	char* mnemonic;
-	oper_t oper1;
-	oper_t oper2;
-	tok2mem_t tok1;
-	tok2mem_t tok2;
+	uint8_t opcode; // opcode
+	uint8_t operand_count; // XXX # of operands - currently ignored - DELETE?
+	char* mnemonic; // the assembly language mnemonic
+	oper_t oper1;   // type of operand 1
+	oper_t oper2;   // type of operand 2
+	tok2mem_t tok1; // where operarand 1 is put in machine code
+	tok2mem_t tok2; // where operarand 2 is put in machine code
 } op_t;
 
 // parse a buffer with assembly language; write the opcode to out
 // returns the number of bytes written to out
-size_t parse_all( char *amsbuf, uint8_t *out );
+size_t assemble_all( char *amsbuf, uint8_t *out );
 
-// splits a given string s in 3 tokens according to one of the following patterns:
-// OP				(1 token)
-// OP OPER1 		(2 tokens)
-// OP OPER1, OPER2	(3 tokens)
+// splits a given assembly language line in 3 tokens.
 // the string s is modified in the process!
-// the function returns the number of tokens parsed. the tokens are returnd in the array token,
-// which must be provided by the caller.
+// the function returns the number of tokens parsed. the tokens are returned
+// in the array token, (of 3 char pointers) must be provided by the caller
+// by reference.
+//
+// tokens are split according to one of the following patterns:
+// OP				(1 token - no operands)
+// OP OPER1 		(2 tokens - 1 operand)
+// OP OPER1, OPER2	(3 tokens - 2 operands)
 int tokenize_line( char *s, char *token[3] );
 
 
@@ -69,22 +72,19 @@ void label_print();
 
 int label_numelems();
 
-// XXX: TBD
-void find_op( char *s );
-
 bool get_register( char*str, int *reg );
 bool get_immediate_value( char *str, int16_t *val );
 bool get_storage_address( char *str, uint16_t *addr );
 bool get_register_address( char *str, int *reg ); // address in register: (R1) ... (R3)
 bool get_immediate_address( char *str, uint16_t *addr ); // $0x0000, $0xFFF, $256
 
-oper_t get_operand_type( char *str, void *data );
+oper_t get_operand( char *str, void *data );
 
 // print an instruction from 3 tokens passed as an array of 3: char *token[3]
 #define PRINT_INSTR(token,end) \
 	printf( "%s %s, %s%s\n", (token)[0], (token)[1], (token)[2], (end) )
 
 int find_instruction( char *token[3] );
-int assemble_line(char *token[3], uint8_t *out); // XXX remove return value
+int assemble_instruction(char *token[3], uint8_t *out); // XXX remove return value
 
 #endif /* ASM_H_ */
