@@ -45,6 +45,8 @@ int main(void) {
 	printf("Host is %s endian.\n", HOST_IS_BE?"BIG":"LITTLE");
 	setbuf(stdout, NULL); // for debugging output to appear immediately after printf
 
+	run_all_unittests(); // run all unit tests
+	return 0;
 
 	char cwd[PATH_MAX+1];
 	if (getcwd(cwd, sizeof(cwd)) != NULL) {
@@ -54,18 +56,16 @@ int main(void) {
 		return 1;
 	}
 
-	const char *source_file = "./testdata/for_i_1_to_10.asm";
-	const char *output_file = NULL;
+	const char *source_file = "./testdata/for_i_1_to_10.asm"; // assembly code
+	const char *output_file = "./testdata/for_i_1_to_10.bin"; // binary machine code
 	assemble_file( source_file, output_file );
 
-	// run_all_unittests(); // run all unit tests
 
 	// TBD: do command line parsing
 	// TBD: -a assemble: assemble given file and produce executable machine code
 	// TBD: -d disassemble: disassemble given file and produce assembly language
 	// TBD: neither -a or -d: run the machine code in the given file
 
-	return 0;
 
 	mcu_t mcu; // MCU
 	mcu_reset( &mcu );
