@@ -8,13 +8,11 @@
 #include <stdio.h>
 #include <strings.h>
 
-#include "../asm/asm.h"
-#include "../mcu/mem.h"
-
-#include "../uCUnit/uCUnit-v1.0.h"
-
 #include "asm_unittests.h"
-
+#include "../asm/asm.h"
+#include "../asm/labels.h"
+#include "../mcu/mem.h"
+#include "../uCUnit/uCUnit-v1.0.h"
 #include "../string/strmanip.h"
 
 
@@ -213,6 +211,59 @@ void _test_get_operand() {
 }
 
 
+void _test_labels() {
+	UCUNIT_TestcaseBegin("asm.label_*");
+
+//	char *label_extract( char *s, int32_t addr );
+//	void label_print();
+//	int label_numelems();
+//	int32_t label_get_address( char *label );
+
+	char line[64] = {'\0'};
+	char *next = NULL;
+
+	// initially empty
+	UCUNIT_CheckIsTrue( label_numelems() == 0 );
+
+	strcpy( line, "one_thousand:x" );
+	next = label_extract( line, 0x1000 );
+	UCUNIT_CheckIsEqual( 'x', *next );
+	UCUNIT_CheckIsEqual( 1, label_numelems() );
+	UCUNIT_CheckIsEqual( 0x1000, label_get_address("one_thousand") );
+
+	strcpy( line, "two_thousand : LD R1, R2" );
+	next = label_extract( line, 0x2000 );
+	UCUNIT_CheckIsEqual( 'L', *next );
+	UCUNIT_CheckIsEqual( 2, label_numelems() );
+	UCUNIT_CheckIsEqual( 0x2000, label_get_address("two_thousand") );
+	UCUNIT_CheckIsTrue( strcmp( next, "LD R1, R2" ) == 0 );
+
+	strcpy( line, "four: thousand:" ); // 2 labels in one line
+	next = label_extract( line, 0x4 );
+	UCUNIT_CheckIsEqual( 't', *next ); // "thousand"
+	UCUNIT_CheckIsEqual( 3, label_numelems() );
+	UCUNIT_CheckIsEqual( 0x4, label_get_address("four") );
+
+	next = label_extract( next, 0x1000 );
+	UCUNIT_CheckIsEqual( '\0', *next ); // end of line
+	UCUNIT_CheckIsEqual( 4, label_numelems() );
+	UCUNIT_CheckIsEqual( 0x1000, label_get_address("thousand") );
+
+	label_delete_all();
+	UCUNIT_CheckIsEqual( 0, label_numelems() );
+
+	// ERRORs
+	strcpy( line, "three thousand:" );
+	next = label_extract( line, 0x3000 );
+	UCUNIT_CheckIsEqual( NULL, next );
+	UCUNIT_CheckIsEqual( 0, label_numelems() ); // unchanged
+
+	label_delete_all();
+	UCUNIT_CheckIsEqual( 0, label_numelems() );
+
+	UCUNIT_TestcaseEnd();
+}
+
 void _test_tokenize_line() {
 	// testing int tokenize_line( char *line, char *token[3] );
 
@@ -221,52 +272,88 @@ void _test_tokenize_line() {
 	char line[64] = {'\0'};
 	int n = 0;
 
-	strcpy( line, "NOP" );
+	strcpy( line, " NOP " );
 	n = tokenize_line( line, tokens );
 	UCUNIT_CheckIsTrue( n = 1 );
 	UCUNIT_CheckIsTrue( strcmp( tokens[0], "NOP" ) == 0 );
 	UCUNIT_CheckIsNull( tokens[1] );
 	UCUNIT_CheckIsNull( tokens[2] );
 
-	strcpy( line, "NOT R1 " );
+	strcpy( line, " NOT R1 " );
 	n = tokenize_line( line, tokens );
 	UCUNIT_CheckIsTrue( n == 2 );
 	UCUNIT_CheckIsTrue( strcmp( tokens[0], "NOT" ) == 0 );
 	UCUNIT_CheckIsTrue( strcmp( tokens[1], "R1" ) == 0 );
 	UCUNIT_CheckIsNull( tokens[2] );
 
-	strcpy( line, "LD R1,R2" );
+	strcpy( line, " LD R1,R2 " );
 	n = tokenize_line( line, tokens );
 	UCUNIT_CheckIsTrue( n == 3 );
 	UCUNIT_CheckIsTrue( strcmp( tokens[0], "LD" ) == 0 );
 	UCUNIT_CheckIsTrue( strcmp( tokens[1], "R1" ) == 0 );
 	UCUNIT_CheckIsTrue( strcmp( tokens[2], "R2" ) == 0 );
 
-	// ERROR cases
-	strcpy( line, "LD R1 R2" ); // comma missing after R1
+	strcpy( line, " LD R1, R2 " );
 	n = tokenize_line( line, tokens );
-	UCUNIT_CheckIsTrue( n == 0 );
-	UCUNIT_CheckIsNull( tokens[1] );
-	UCUNIT_CheckIsNull( tokens[1] );
-	UCUNIT_CheckIsNull( tokens[2] );
+	UCUNIT_CheckIsTrue( n == 3 );
+	UCUNIT_CheckIsTrue( strcmp( tokens[0], "LD" ) == 0 );
+	UCUNIT_CheckIsTrue( strcmp( tokens[1], "R1" ) == 0 );
+	UCUNIT_CheckIsTrue( strcmp( tokens[2], "R2" ) == 0 );
 
-	strcpy( line, "LD R1," );
-	n = tokenize_line( line, tokens ); // 2nd operand missing after comma
-	UCUNIT_CheckIsTrue( n == 0 );
-	UCUNIT_CheckIsNull( tokens[1] );
-	UCUNIT_CheckIsNull( tokens[1] );
+	strcpy( line, " LD R1 , R2 " );
+	n = tokenize_line( line, tokens );
+	UCUNIT_CheckIsTrue( n == 3 );
+	UCUNIT_CheckIsTrue( strcmp( tokens[0], "LD" ) == 0 );
+	UCUNIT_CheckIsTrue( strcmp( tokens[1], "R1" ) == 0 );
+	UCUNIT_CheckIsTrue( strcmp( tokens[2], "R2" ) == 0 );
+
+	strcpy( line, " LD R1 ,R2 " );
+	n = tokenize_line( line, tokens );
+	UCUNIT_CheckIsTrue( n == 3 );
+	UCUNIT_CheckIsTrue( strcmp( tokens[0], "LD" ) == 0 );
+	UCUNIT_CheckIsTrue( strcmp( tokens[1], "R1" ) == 0 );
+	UCUNIT_CheckIsTrue( strcmp( tokens[2], "R2" ) == 0 );
+
+	// LOGIC ERRORS
+	strcpy( line, " LDR1, R2 " ); // space missing btw mnemonic & operand
+	n = tokenize_line( line, tokens );
+	UCUNIT_CheckIsTrue( n == 2 );
+	UCUNIT_CheckIsTrue( strcmp( tokens[0], "LDR1," ) == 0 );
+	UCUNIT_CheckIsTrue( strcmp( tokens[1], "R2" ) == 0 );
 	UCUNIT_CheckIsNull( tokens[2] );
 
 	strcpy( line, "LD, R1, R2" );
 	n = tokenize_line( line, tokens ); // excess comma after mnemonic
-	UCUNIT_CheckIsTrue( n == 0 );
+	UCUNIT_CheckIsTrue( n == 3 );
+	UCUNIT_CheckIsTrue( strcmp( tokens[0], "LD," ) == 0 );
+	UCUNIT_CheckIsTrue( strcmp( tokens[1], "R1" ) == 0 );
+	UCUNIT_CheckIsTrue( strcmp( tokens[2], "R2" ) == 0 );
+
+	strcpy( line, " LD R1 R2 " ); // comma missing after R1
+	n = tokenize_line( line, tokens );
+	UCUNIT_CheckIsTrue( n == 2 );
+	UCUNIT_CheckIsTrue( strcmp( tokens[0], "LD" ) == 0 );
+	UCUNIT_CheckIsTrue( strcmp( tokens[1], "R1 R2" ) == 0 );  // "R1 R2" => token[1]
+	UCUNIT_CheckIsNull( tokens[2] );
+
+	strcpy( line, "LD, R1, R2 XYZ" ); // excess comma after mnemonic plus
+	n = tokenize_line( line, tokens ); // excess characters after operand 2
+	UCUNIT_CheckIsTrue( n == 3 );
+	UCUNIT_CheckIsTrue( strcmp( tokens[0], "LD," ) == 0 );
+	UCUNIT_CheckIsTrue( strcmp( tokens[1], "R1" ) == 0 );
+	UCUNIT_CheckIsTrue( strcmp( tokens[2], "R2 XYZ" ) == 0 );
+
+	// ERRORS with respect to expected sequence
+	strcpy( line, " LD R1, " );
+	n = tokenize_line( line, tokens ); // 2nd operand missing after comma
+	UCUNIT_CheckIsTrue( n == -1 );
 	UCUNIT_CheckIsNull( tokens[1] );
 	UCUNIT_CheckIsNull( tokens[1] );
 	UCUNIT_CheckIsNull( tokens[2] );
 
-	strcpy( line, "LD, R1, R2 XYZ" );
-	n = tokenize_line( line, tokens ); // excess characters after instruction
-	UCUNIT_CheckIsTrue( n == 0 );
+	strcpy( line, " LD R1, R2," );
+	n = tokenize_line( line, tokens ); // excess comma
+	UCUNIT_CheckIsTrue( n == -1 );
 	UCUNIT_CheckIsNull( tokens[1] );
 	UCUNIT_CheckIsNull( tokens[1] );
 	UCUNIT_CheckIsNull( tokens[2] );
@@ -537,9 +624,8 @@ void run_asm_unittests(void) {
 	UCUNIT_ResetTracepointCoverage(); // unused
 	_test_parse_operands();
 	_test_get_operand();
-
+	_test_labels();
 	_test_tokenize_line();
-
 	_test_find_instruction();
 	_test_assemble_instruction();
 	// _test_assemble_buffer;

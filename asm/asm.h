@@ -45,32 +45,6 @@ typedef struct op_s {
 	tok2mem_t tok2; // where operarand 2 is put in machine code
 } op_t;
 
-// parse a buffer with assembly language; write the opcode to out
-// returns the number of bytes written to out
-size_t assemble_buffer( char *amsbuf, uint8_t *out );
-
-// splits a given assembly language line in 3 tokens.
-// the string s is modified in the process!
-// the function returns the number of tokens parsed. the tokens are returned
-// in the array token, (of 3 char pointers) must be provided by the caller
-// by reference.
-//
-// tokens are split according to one of the following patterns:
-// OP				(1 token - no operands)
-// OP OPER1 		(2 tokens - 1 operand)
-// OP OPER1, OPER2	(3 tokens - 2 operands)
-int tokenize_line( char *s, char *token[3] );
-
-
-// extracts a label from a given line and stores the corresponding addr with it.
-// returns a pointer to the character after the ':', e.g.:
-// given "  loop:NOP" the function will store the label and return a pointer to 'N'.
-
-char *label_extract( char *s, int32_t addr );
-
-void label_print();
-
-int label_numelems();
 
 bool get_register( char*str, int *reg );
 bool get_immediate_value( char *str, int16_t *val );
@@ -84,10 +58,25 @@ oper_t get_operand( char *str, void *data );
 #define PRINT_INSTR(token,end) \
 	printf( "%s %s, %s%s\n", (token)[0], (token)[1], (token)[2], (end) )
 
-int find_instruction( char *token[3] );
-size_t assemble_instruction(char *token[3], uint8_t *out);
+// parse a buffer with assembly language; write the opcode to out
+// returns the number of bytes written to out
+// DEPRECATED: use assemble_line() instead
+// size_t assemble_buffer( char *amsbuf, uint8_t *out );
 
-// bla bla
+// assemble an input file (typically .asm)
 void assemble_file( const char *source_file, const char *output_file );
+
+// assemble one line from the input file
+int assemble_line( char *line, uint8_t *out, size_t mcode_cnt );
+
+// splits a given assembly instruction in 3 tokens.
+int tokenize_line( char *s, char *token[3] );
+
+// assembles the tokenized instruction into machine code
+int assemble_instruction(char *token[3], uint8_t *out);
+
+// find the instruction in the ops_t array and return its index. (here only for unit tests.)
+int find_instruction( char *token[3] );
+
 
 #endif /* ASM_H_ */

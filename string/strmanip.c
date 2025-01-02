@@ -83,5 +83,6 @@ char *subst_char(char *s, char u, char x) {
 // modifies the input string!
 // returns s, that is the unmodified start of the input string
 char *remove_comments(char *s) {
+	if( s == NULL ) return NULL;
 	return subst_char(s, ';', '\0');
 }

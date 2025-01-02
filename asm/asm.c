@@ -6,13 +6,13 @@
  */
 
 #include <stdint.h>
-#include <strings.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
-#include <ctype.h> // isspace
+#include <strings.h>
 
 #include "asm.h"
+#include "labels.h"
 #include "../mcu/mem.h" // HI_BYTE, LO_BYTE
 
 #include "../string/llist.h"
@@ -115,9 +115,17 @@ bool get_register_address( char *str, int *reg ) { // address in register: (R1) 
 // immediate address for branching BRA $addr
 bool get_immediate_address( char *str, uint16_t *addr ) { // $0x0000, $0xFFF, $256
 	// XXX needs to be able to use lables!!!
-	if(str[0] != '$' ) return false; // must starts with '('
+	if( str[0] != '$' ) return false; // must starts with '('
     char* end = NULL;
 	str++;
+
+	// check if str is either a known label or a number
+	int32_t label_addr = label_get_address( str );
+	if( label_addr >= 0 ) {
+		*addr = label_addr; // found label
+		return true;
+	}
+
 	const long i = strtol(str, &end, 0); // str to long, base 0 = auto-detect
 	if( str == end || errno != 0) return false; // decode error or overflow
 	if( i < 0 || 0xFFFF < i) return false; // out of range for 16 bit
@@ -137,11 +145,16 @@ oper_t get_operand( char *str, void *data ) {
 	else return OPER_ERROR;
 }
 
-// static uint16_t current_address; // current memory address of the assembled code
-static llnode_t *labels = NULL; // list of labels with their corresponding addresses
+/**
+ * @brief Matches the given tokens to the instructions in the instruction list
+ * 	      (ops) and returns the index (0+) if a match is found,
+ * 	      otherwise -1 (not found).
+ *
+ * @param token the tokens to match the instructions against.
+ * @return The index of the matching instruction in the instruction list ops
+ * 	       or -1 if not found.
+ */
 
-// finds the instruction in the instruction list (ops) and returns its index
-// or a negative value if the instruction could not be found.
 int find_instruction( char *token[3] ) {
 	// PRINT_INSTR(token, "\n");
 	int i, num_ops = sizeof(ops)/sizeof(ops[0]);
@@ -172,7 +185,7 @@ int find_instruction( char *token[3] ) {
 	} // end for every instruction
 
 	if( i >= num_ops) { // instruction not found
-		return -666;
+		return -1;
 	} else
 		return i;
 }
@@ -189,13 +202,13 @@ int find_instruction( char *token[3] ) {
  * @param out The output buffer to which the generated machine code is written.
  * @return The number of bytes written to out (4, or 0 on error).
  */
-size_t assemble_instruction(char *token[3], uint8_t *out) {
+int assemble_instruction( char *token[3], uint8_t *out ) {
 
 	int inst_no = find_instruction(token);
 	if( inst_no < 0 ) {
-		printf("Parse ERROR: instruction not recognized: \'");
+		printf("Parse ERROR: instruction not found or operand mismatch: \'");
 		PRINT_INSTR(token, "\'\n");
-		return 0;
+		return -1;
 	}
 
 	// opcode always goes first
@@ -204,9 +217,10 @@ size_t assemble_instruction(char *token[3], uint8_t *out) {
 	*(out+2) = 0;
 	*(out+3) = 0;
 
-	// XXX replace spaghetti-code with something more elegant, please
+	// XXX replace spaghetti-code with something more elegant, please :)
 	uint32_t data = 0;
-	/*oper_t opert1 =*/ get_operand( token[1], &data );
+	/*oper_t oper1 =*/ get_operand( token[1], &data );
+
 	switch( ops[inst_no].tok1 ) {
 	case xx: // ignore
 		break;
@@ -223,7 +237,7 @@ size_t assemble_instruction(char *token[3], uint8_t *out) {
 		break;
 	default:
 		printf("Internal ERROR in assembler at line %d in %s\n", __LINE__, __FILE__ );
-		// while(true) {}
+		return -666; // internal error
 	}
 
 	/*oper_t opert2 =*/ get_operand( token[2], &data );
@@ -243,73 +257,80 @@ size_t assemble_instruction(char *token[3], uint8_t *out) {
 		break;
 	default:
 		printf("Internal ERROR in assembler at line %d in %s\n", __LINE__, __FILE__ );
-		// while(true) {}
+		return -666; // internal error
 	}
 
 	return 4;
 }
 
 
-// assembles a string buffer with assembly language and writes the machine code to out.
-// returns the number of bytes written to out.
-size_t assemble_buffer( char *amsbuf, uint8_t *out ) {
-	size_t count = 0;
-	char delim[] = "\n";
-	char *next;
-	char *lines_save;
-
-	// break lines at the newline (\n) char - modifies the input!
-	next = strtok_r( amsbuf, delim, &lines_save );
-	while (next != NULL) {
-
-		printf( "Looking at   [%s]:\n", next );
-		next = remove_comments( next );
-		printf( "wo comments: [%s]:\n", next );
-		next = trim_whitespace( next );
-		printf( "trimmed:     [%s]:\n", next );
-
-		next = label_extract( next, count ); // any labels?
-		// next = skip_whitespace( next ); // label_extrac() already skips
-
-		char *token[3];
-		tokenize_line( next, token );
-		// printf( "  OP: %s\n", token[0] );
-		// printf( "  OPER1: %s\n", token[1] );
-		// printf( "  OPER2: %s\n", token[2] );
-
-		count += 4;
-		next = strtok_r( NULL, delim, &lines_save );
-	}
-	return count;
-}
+//// assembles a string buffer with assembly language and writes the machine code to out.
+//// returns the number of bytes written to out.
+//size_t assemble_buffer( char *amsbuf, uint8_t *out ) {
+//	size_t count = 0;
+//	char delim[] = "\n";
+//	char *next;
+//	char *lines_save;
+//
+//	// break lines at the newline (\n) char - modifies the input!
+//	next = strtok_r( amsbuf, delim, &lines_save );
+//	while (next != NULL) {
+//
+//		printf( "Looking at   [%s]:\n", next );
+//		next = remove_comments( next );
+//		printf( "wo comments: [%s]:\n", next );
+//		next = trim_whitespace( next );
+//		printf( "trimmed:     [%s]:\n", next );
+//
+//		next = label_extract( next, count ); // any labels?
+//		// next = skip_whitespace( next ); // label_extrac() already skips
+//
+//		char *token[3];
+//		tokenize_line( next, token );
+//		// printf( "  OP: %s\n", token[0] );
+//		// printf( "  OPER1: %s\n", token[1] );
+//		// printf( "  OPER2: %s\n", token[2] );
+//
+//		count += 4;
+//		next = strtok_r( NULL, delim, &lines_save );
+//	}
+//	return count;
+//}
 
 
 /**
- * \brief Assembles a string buffer with ONE LINE of assembly language and writes the
+ * @brief Assembles a string buffer with ONE LINE of input and writes the
  * machine code to the output buffer out.
+ *
+ * Supposed to handle everything supported thrown at it (comments, labels, ...).
  *
  * @param line		one line of assembly code
  * @param out		the output buffer to write the assembled machine code to
  * @param mcode_cnt	the current machine-code position in the buffer
- * @returns The number of bytes written to out (should always be 0 or 4).
+ * @returns 		If successful, the number of bytes written to out (0 or 4),
+ * 					otherwise an negative number on error.
  */
-size_t assemble_line( char *line, uint8_t *out, size_t mcode_cnt ) {
+int assemble_line( char *line, uint8_t *out, size_t mcode_cnt ) {
 	char *next = line;
-	// char *lines_save; // XXX remove
 
 	next = remove_comments( next );
 	next = trim_whitespace( next );
 	next = label_extract( next, mcode_cnt );
-
-	if( *next == '\0' ) return 0;
+	if( next == NULL ) {
+		printf( "ERROR parsing label \"%s\"\n", line );
+		return -4; // invalid syntax for label
+	}
+	if( *next == '\0' ) return 0; // empty input or label only
 
 	char *token[3] = { NULL, NULL, NULL };
-	tokenize_line( next, token );
-	// printf( "  OP: %s\n", token[0] );
-	// printf( "  OPER1: %s\n", token[1] );
-	// printf( "  OPER2: %s\n", token[2] );
 
-	assert( token[0] != NULL ); // no token found?!
+	// tokenize the line according to the syntax
+	// only checks for syntax errors, not semantic
+	int num = tokenize_line( next, token );
+	if( num < 0 ) {
+		printf( "ERROR tokenizing line \"%s\"\n", line );
+		return num;
+	}
 
 	return assemble_instruction( token, out + mcode_cnt );
 }
@@ -335,17 +356,24 @@ void assemble_file( const char *source_file, const char *output_file ) {
     while( fgets(line, sizeof(line), src) ) { // read line by line
     	line_no++;
     	printf( "%3d: %s", line_no, line ); // output to terminal
-    	size_t instr_size = assemble_line( line, mcode_buf, mcode_cnt ); // assemble to buffer
+    	int instr_size = assemble_line( line, mcode_buf, mcode_cnt ); // assemble to buffer
+
+    	if(instr_size < 0) { // parse error
+    		printf( "%s: ", source_file );
+    		printf( "%d: error while parsing input file.\n", line_no );
+            exit(1);
+    	}
+
     	mcode_cnt += instr_size;
     	if( mcode_cnt >= MACHINE_CODE_SIZE) {
     		// XXX perform proper file io: write partial files, then continue
-    		printf("Internal ERROR: ");
-    		printf("generated machine code exceeds buffer size of %d.", MACHINE_CODE_SIZE);
+    		printf( "Internal ERROR: " );
+    		printf( "generated machine code exceeds buffer size of %d.", MACHINE_CODE_SIZE );
             exit(1);
     	} // end if
     } // end while
 
-    // buffer must containe multiples of 4 bytes if we haven't fubar
+    // buffer must contain multiples of 4 bytes if we haven't fubar
     assert( mcode_cnt % 4 == 0 );
 
     // print machine code buffer
@@ -366,7 +394,8 @@ void assemble_file( const char *source_file, const char *output_file ) {
 
 
 /**
- * @brief Tokenizes the input line of assembly code.
+ * @brief Tokenizes an input line of assembly code in the form
+ * "Mnemonic Operand1, Operand2". Does not handle labels!
  *
  * Takes a line of assembly code and cuts it into its pieces: one instruction
  *  (token 1) and 0...2 operands (tokens 2 and 3).
@@ -399,87 +428,63 @@ int tokenize_line( char *line, char *token[3] ) {
 	const char comma[] = ","; // comma only
 	char *save_ptr = NULL;
 
-	// finding instruction (must end in whitespace or '\0')
+	// MNEMONIC: must end in whitespace or '\0'
 	token[0] = strtok_r( line, whitespace, &save_ptr ); // (OP)  (_OPER1_comma_OPER2_)
 	if (token[0] == NULL) { // no more tokens
-		// printf("INTERNAL ERROR: empty line?!");
-		return 0;
-	} else if( save_ptr == NULL ) {
-		// the line is completely parsed, i.e., no more whitespace
+		return -1; // INTERNAL ERROR: empty line despite check above?!
+	}
+
+	if( save_ptr == NULL ) {
+		// there was NO whitespace in line
+		// => the line is completely parsed
+		// => there only was an instruction
 		return 1;
 	}
 
-	// operand 1: splitting "OPER1, OPER2" at comma
-	line = strtok_r( NULL, comma, &save_ptr ); // (_OPER1_) , (_OPER2_)
-	if (line == NULL) {
-		return 1; // only instruction found
+	// OPERAND 1: splitting "OPER1, OPER2" at comma
+	line = strtok_r( NULL, comma, &save_ptr );
+	if( line == NULL ) {
+		// this means: there was no leftover from 1st call
+		// this is the case when the line ends after the comma
+		// => only instruction found
+		// should have been caught at "if (save_ptr == NULL)"
+		assert( false );
+		return 1;
 	}
-
-	line = trim_whitespace( line ); // OPER1
-	token[1] = line;
+	token[1] = line = trim_whitespace( line ); // OPER1
 
 	if( save_ptr == NULL ) {
-		// the line is completely parsed, i.e., there is NO comma
+		// there was NO comma in line
+		// => the line is completely parsed
+		// => there was one mnemonic and one operand
 		return 2;
 	}
 
-	// operand 2: last part after comma
+	// OPERAND 2: part after comma
 	line = strtok_r( NULL, comma, &save_ptr );
 	if (line == NULL) {
-		return 2; // instruction and operand 1 found
+		// this means: no more tokens
+		// => there was a comma after the 1st call
+		// => but after that comma, there is nothing
+		// => this is an error, because we expect oper 2 after the comma
+		token[0] = token[1] = token[2] = NULL;
+		return -1;
 	}
+	token[2] = line = trim_whitespace( line ); // OPER2
 
-	line = skip_whitespace( line );
-	token[2] = line;
-
-	if( save_ptr != NULL ) {
-		// the line war NOT completely parsed, i.e., there is more stuff
-		printf( "ERROR: input line has excess characters: %s", save_ptr );
-		return 0;
+	if( save_ptr == NULL ) {
+		// there was no 2ND comma in line (good!)
+		// => the line is completely parsed
+		// => there was one mnemonic and two operands
+		return 3;
+	} else {
+		// the line war NOT completely parsed
+		// i.e., there is more stuff after a second comma
+		printf( "ERROR: input line contains an excess comma before: \"%s\"\n", save_ptr );
+		token[0] = token[1] = token[2] = NULL;
 	}
-	return 3; // inst. and both operands found
+	return -1;
 }
 
 
-/**
- * @brief Extracts a label from an input line (if there is one) and stores it together with its address in llist.
- *
- * Note: expects that all leading and trailing whitespace has been removed of the input line.
- *
- * @param line	A line of assembly language without leading and trailing whitespace.
- * @param addr	The address of next instruction, that is, the address the label refers to.
- * @return The remainder of the input line after all whitespace has been removed.
- */
-char* label_extract(char *line, int32_t addr) {
-	if(*line == '\0') return line; // return if end of line
-	assert( !isspace(*line) ); // expects no whitespace at *line
 
-	// inspect a line if it contains a ':' => has a label
-	char *colon_pos = strchr( line, ':' );
-	if (colon_pos == NULL) {
-		// printf( "  contains no label!\n" );
-		return line; // no label, return unchanged
-	}
-	*colon_pos = '\0'; // replace colon with end of string
-	printf( "label is: %s\n", line );
-	labels = list_add_first( labels, line, addr );
-
-	// return the string from after the ':' after having removed all whitespace
-	return skip_whitespace(colon_pos + 1);
-}
-
-/**
- * @brief Prints out all labels found in the assembly so far.
- */
-void label_print() {
-	printf("Labels:\n");
-	list_print( labels );
-}
-
-/**
- * @brief Returns the number of labels found in the assembly so far.
- * @return The the number of labels found in the assembly so far.
- */
-int label_numelems() {
-	return list_numelems( labels );
-}

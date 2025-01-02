@@ -20,7 +20,7 @@ typedef struct llnode_s {
 // adds a node to the beginning of the list
 llnode_t* list_add_first(llnode_t *first, const char *key, int32_t value);
 
-// returns the value corresponding to the given key
+// returns the value corresponding to the given key or -1 if not found
 int32_t list_get_key(llnode_t *first, const char *key);
 
 // print entire list
@@ -28,5 +28,8 @@ void list_print( llnode_t *first );
 
 // returns number of elements in the list
 int list_numelems( llnode_t *first );
+
+// delete the entire list identified by first
+llnode_t* list_delete_all( llnode_t *first );
 
 #endif /* STRING_LLIST_H_ */

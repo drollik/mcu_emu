@@ -18,8 +18,16 @@ Project on [github.com](https://github.com/drollik/mcu_emu)
 ## Todos
 
 ### Assembler
+
+Labels
+- implement two-pass assembly to deal with forward-referenced labels (or use fixups )
+
 Misc
-- reading in assembly language file
+- in find_instruction(): return error codes for different kind of errors, e.g.:
+    - unknown instruction mnemonic
+    - operand type unknown (already done in tokenize_line()?)
+    - operand type mismach: the found operand type does not match the instruction mnemonic
+    
 
 Unit tests 
 - Unit tests for assemble_instruction() for instructions
