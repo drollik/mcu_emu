@@ -18,6 +18,10 @@ Project on [github.com](https://github.com/drollik/mcu_emu)
 ## Todos
 
 ### Assembler
+Misc
+- reading in assembly language file
+
+Unit tests 
 - Unit tests for assemble_instruction() for instructions
     - ADD, SUB, AND, CMP, BRN, BRZ, BRP
 - Unit tests for find_instruction() for instructions
