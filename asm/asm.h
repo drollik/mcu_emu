@@ -85,7 +85,7 @@ oper_t get_operand( char *str, void *data );
 	printf( "%s %s, %s%s\n", (token)[0], (token)[1], (token)[2], (end) )
 
 int find_instruction( char *token[3] );
-int assemble_instruction(char *token[3], uint8_t *out); // XXX remove return value
+size_t assemble_instruction(char *token[3], uint8_t *out);
 
 // bla bla
 void assemble_file( const char *source_file, const char *output_file );

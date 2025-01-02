@@ -212,6 +212,71 @@ void _test_get_operand() {
 	UCUNIT_TestcaseEnd();
 }
 
+
+void _test_tokenize_line() {
+	// testing int tokenize_line( char *line, char *token[3] );
+
+	UCUNIT_TestcaseBegin("asm.tokenize_line()");
+	char *tokens[3] = {NULL};
+	char line[64] = {'\0'};
+	int n = 0;
+
+	strcpy( line, "NOP" );
+	n = tokenize_line( line, tokens );
+	UCUNIT_CheckIsTrue( n = 1 );
+	UCUNIT_CheckIsTrue( strcmp( tokens[0], "NOP" ) == 0 );
+	UCUNIT_CheckIsNull( tokens[1] );
+	UCUNIT_CheckIsNull( tokens[2] );
+
+	strcpy( line, "NOT R1 " );
+	n = tokenize_line( line, tokens );
+	UCUNIT_CheckIsTrue( n == 2 );
+	UCUNIT_CheckIsTrue( strcmp( tokens[0], "NOT" ) == 0 );
+	UCUNIT_CheckIsTrue( strcmp( tokens[1], "R1" ) == 0 );
+	UCUNIT_CheckIsNull( tokens[2] );
+
+	strcpy( line, "LD R1,R2" );
+	n = tokenize_line( line, tokens );
+	UCUNIT_CheckIsTrue( n == 3 );
+	UCUNIT_CheckIsTrue( strcmp( tokens[0], "LD" ) == 0 );
+	UCUNIT_CheckIsTrue( strcmp( tokens[1], "R1" ) == 0 );
+	UCUNIT_CheckIsTrue( strcmp( tokens[2], "R2" ) == 0 );
+
+	// ERROR cases
+	strcpy( line, "LD R1 R2" ); // comma missing after R1
+	n = tokenize_line( line, tokens );
+	UCUNIT_CheckIsTrue( n == 0 );
+	UCUNIT_CheckIsNull( tokens[1] );
+	UCUNIT_CheckIsNull( tokens[1] );
+	UCUNIT_CheckIsNull( tokens[2] );
+
+	strcpy( line, "LD R1," );
+	n = tokenize_line( line, tokens ); // 2nd operand missing after comma
+	UCUNIT_CheckIsTrue( n == 0 );
+	UCUNIT_CheckIsNull( tokens[1] );
+	UCUNIT_CheckIsNull( tokens[1] );
+	UCUNIT_CheckIsNull( tokens[2] );
+
+	strcpy( line, "LD, R1, R2" );
+	n = tokenize_line( line, tokens ); // excess comma after mnemonic
+	UCUNIT_CheckIsTrue( n == 0 );
+	UCUNIT_CheckIsNull( tokens[1] );
+	UCUNIT_CheckIsNull( tokens[1] );
+	UCUNIT_CheckIsNull( tokens[2] );
+
+	strcpy( line, "LD, R1, R2 XYZ" );
+	n = tokenize_line( line, tokens ); // excess characters after instruction
+	UCUNIT_CheckIsTrue( n == 0 );
+	UCUNIT_CheckIsNull( tokens[1] );
+	UCUNIT_CheckIsNull( tokens[1] );
+	UCUNIT_CheckIsNull( tokens[2] );
+
+
+	UCUNIT_TestcaseEnd();
+}
+
+
+
 void _test_assemble_instruction() {
 	UCUNIT_TestcaseBegin("asm.assemble_instruction()");
 
@@ -454,25 +519,28 @@ void _test_find_instruction() {
 	UCUNIT_TestcaseEnd();
 }
 
-void _test_assemble_buffer() {
-	size_t count = 0;
-	UCUNIT_TestcaseBegin("asm.assemble_buffer()");
-	count = assemble_buffer( lines, mem );
-	label_print();
-
-	// expected, actual
-	UCUNIT_CheckIsTrue( count > 0 ); // how long is the generated machine code?
-	UCUNIT_CheckIsTrue( 2 == label_numelems() ); // 2 labels contained in lines
-
-	UCUNIT_TestcaseEnd();
-}
+//void _test_assemble_buffer() {
+//	size_t count = 0;
+//	UCUNIT_TestcaseBegin("asm.assemble_buffer()");
+//	count = assemble_buffer( lines, mem );
+//	label_print();
+//
+//	// expected, actual
+//	UCUNIT_CheckIsTrue( count > 0 ); // how long is the generated machine code?
+//	UCUNIT_CheckIsTrue( 2 == label_numelems() ); // 2 labels contained in lines
+//
+//	UCUNIT_TestcaseEnd();
+//}
 
 
 void run_asm_unittests(void) {
 	UCUNIT_ResetTracepointCoverage(); // unused
 	_test_parse_operands();
-	_test_find_instruction();
 	_test_get_operand();
+
+	_test_tokenize_line();
+
+	_test_find_instruction();
 	_test_assemble_instruction();
 	// _test_assemble_buffer;
 	UCUNIT_WriteSummary(); // uCUnit test summary
