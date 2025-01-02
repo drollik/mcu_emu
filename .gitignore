@@ -1,4 +1,12 @@
 #
+# Project specific
+#
+testdata/*.bin
+
+
+
+
+#
 # Eclipse IDE
 #
 # https://github.com/github/gitignore/blob/main/Global/Eclipse.gitignore
